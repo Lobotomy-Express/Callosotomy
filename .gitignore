@@ -485,3 +485,4 @@ $RECYCLE.BIN/
 
 # Build output
 artifacts/
+*.patch
