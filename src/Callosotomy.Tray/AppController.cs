@@ -75,6 +75,7 @@ internal sealed class AppController : IDisposable
             ProtocolErrors.ModeDisabled => "That mode is turned off by your organisation",
             "untrusted-server" => "Refused: the control channel is not the real service",
             "unreachable" => "Can't reach the protection service",
+            "malformed" => "The service dropped the request; check Event Viewer",
             _ => "The service could not apply that change",
         });
         await RefreshAsync().ConfigureAwait(true);

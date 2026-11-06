@@ -52,6 +52,10 @@
       </Files>
     </ComponentGroup>
 
+    <!-- Close the tray app during upgrade/uninstall so Windows doesn't ask about files in use. -->
+    <util:CloseApplication Id="CloseTray" Target="Callosotomy.exe" CloseMessage="yes" ElevatedCloseMessage="yes"
+                           TerminateProcess="1" RebootPrompt="no" Description="Closing the Callosotomy tray app" />
+
     <!-- On a real uninstall (not an upgrade), lift any active block so the machine is not left isolated. -->
     <CustomAction Id="RemoveRules" FileRef="ServiceExe" ExeCommand="--remove-rules"
                   Execute="deferred" Impersonate="no" Return="ignore" />

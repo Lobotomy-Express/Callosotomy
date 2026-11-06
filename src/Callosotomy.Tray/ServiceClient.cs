@@ -30,9 +30,12 @@ internal static class ServiceClient
     {
         try
         {
+            // Impersonation level lets the service read our token to decide what we're allowed to do.
+            // Safe because nothing is written until VerifyServer has proven the other end is the
+            // installed SYSTEM service, and a pipe server can only impersonate after reading from us.
             using var pipe = new NamedPipeClientStream(
                 ".", Protocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous,
-                TokenImpersonationLevel.Identification);
+                TokenImpersonationLevel.Impersonation);
             await pipe.ConnectAsync(1000, ct).ConfigureAwait(false);
             VerifyServer(pipe);
 

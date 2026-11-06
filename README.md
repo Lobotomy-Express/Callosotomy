@@ -29,7 +29,7 @@ A **corpus callosotomy** is brain surgery that cuts the bridge between the two h
 Download the MSI from [Releases](../../releases) and run it, or deploy it silently:
 
 ```powershell
-msiexec /i Callosotomy-0.1.0-x64.msi /qn
+msiexec /i Callosotomy-0.1.1-x64.msi /qn
 ```
 
 The installer:

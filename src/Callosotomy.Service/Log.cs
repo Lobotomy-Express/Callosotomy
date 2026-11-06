@@ -35,6 +35,12 @@ internal static partial class Log
     [LoggerMessage(EventId = 1401, Level = LogLevel.Critical, Message = "Could not create the control pipe; another process may be impersonating the service.")]
     public static partial void PipeSquatted(ILogger logger, Exception ex);
 
+    [LoggerMessage(EventId = 1402, Level = LogLevel.Warning, Message = "Control client dropped: {Kind}: {Detail}")]
+    public static partial void ClientDropped(ILogger logger, string kind, string detail);
+
+    [LoggerMessage(EventId = 1403, Level = LogLevel.Error, Message = "Could not identify the control client; request refused.")]
+    public static partial void IdentifyFailed(ILogger logger, Exception ex);
+
     [LoggerMessage(EventId = 1500, Level = LogLevel.Error, Message = "Failed to apply {Mode}.")]
     public static partial void ApplyFailed(ILogger logger, IsolationMode mode, Exception ex);
 

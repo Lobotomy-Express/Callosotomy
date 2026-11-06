@@ -69,7 +69,8 @@ internal sealed class ControlServer : BackgroundService
                 }
                 catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
                 {
-                    // Client vanished, timed out or could not be identified. Nothing to do.
+                    // Client vanished or timed out. Logged so a failure is never silent.
+                    Log.ClientDropped(_log, ex.GetType().Name, ex.Message);
                 }
                 catch (Exception ex)
                 {
@@ -103,14 +104,25 @@ internal sealed class ControlServer : BackgroundService
         // Identify the caller from the kernel, never from anything it sends.
         string user = "unknown";
         bool isAdmin = false;
-        pipe.RunAsClient(() =>
+        bool identified = false;
+        try
         {
-            using var id = WindowsIdentity.GetCurrent(TokenAccessLevels.Query);
-            user = id.Name;
-            isAdmin = new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
-        });
+            pipe.RunAsClient(() =>
+            {
+                using var id = WindowsIdentity.GetCurrent(TokenAccessLevels.Query);
+                user = id.Name;
+                isAdmin = new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
+            });
+            identified = true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.IdentifyFailed(_log, ex);
+        }
 
-        string reply = await DecideAsync(line, user, isAdmin, ct).ConfigureAwait(false);
+        string reply = identified
+            ? await DecideAsync(line, user, isAdmin, ct).ConfigureAwait(false)
+            : Protocol.FormatError(ProtocolErrors.Denied);
         byte[] bytes = Encoding.ASCII.GetBytes(reply + "\n");
         await pipe.WriteAsync(bytes, ct).ConfigureAwait(false);
         await pipe.FlushAsync(ct).ConfigureAwait(false);
