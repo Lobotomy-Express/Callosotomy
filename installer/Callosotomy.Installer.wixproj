@@ -2,6 +2,8 @@
   <PropertyGroup>
     <OutputName>Callosotomy-$(Version)-x64</OutputName>
     <Platform>x64</Platform>
+    <!-- MSI validation (ICE) warnings are informational; don't fail the build on them. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish</PublishDir>
     <DefineConstants>PublishDir=$(PublishDir);Version=$(Version)</DefineConstants>
   </PropertyGroup>

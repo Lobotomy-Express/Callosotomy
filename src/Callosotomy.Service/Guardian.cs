@@ -177,7 +177,8 @@ internal sealed class Guardian : BackgroundService
                 if (_mode == mode)
                 {
                     _health = BlockHealth.Bypassed;
-                    Log.Bypassed(_log, mode, $"a test connection to {target} succeeded");
+                    if (_log.IsEnabled(LogLevel.Critical))
+                        Log.Bypassed(_log, mode, $"a test connection to {target} succeeded");
                 }
             }
             finally

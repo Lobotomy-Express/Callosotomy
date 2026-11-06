@@ -1,0 +1,79 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 54e8c54..4acf7d3 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -21,7 +21,7 @@ jobs:
+ 
+       - uses: actions/setup-dotnet@v4
+         with:
+-          dotnet-version: 8.0.x
++          global-json-file: global.json
+ 
+       - name: Test, publish and package
+         shell: pwsh
+diff --git a/.github/workflows/codeql.yml b/.github/workflows/codeql.yml
+index 4bc6cb2..b0d7ebc 100644
+--- a/.github/workflows/codeql.yml
++++ b/.github/workflows/codeql.yml
+@@ -23,7 +23,7 @@ jobs:
+ 
+       - uses: actions/setup-dotnet@v4
+         with:
+-          dotnet-version: 8.0.x
++          global-json-file: global.json
+ 
+       - uses: github/codeql-action/init@v3
+         with:
+diff --git a/Directory.Build.props b/Directory.Build.props
+index 39ae556..330c239 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -4,7 +4,8 @@
+     <Nullable>enable</Nullable>
+     <ImplicitUsings>enable</ImplicitUsings>
+     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+-    <AnalysisLevel>latest-recommended</AnalysisLevel>
++    <!-- Pinned so a newer SDK on the build machine can't introduce new errors. -->
++    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+     <Deterministic>true</Deterministic>
+     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+diff --git a/global.json b/global.json
+new file mode 100644
+index 0000000..ae9f38c
+--- /dev/null
++++ b/global.json
+@@ -0,0 +1,6 @@
++{
++  "sdk": {
++    "version": "8.0.400",
++    "rollForward": "latestFeature"
++  }
++}
+diff --git a/installer/Callosotomy.Installer.wixproj b/installer/Callosotomy.Installer.wixproj
+index fe14fb8..ba5427e 100644
+--- a/installer/Callosotomy.Installer.wixproj
++++ b/installer/Callosotomy.Installer.wixproj
+@@ -2,6 +2,8 @@
+   <PropertyGroup>
+     <OutputName>Callosotomy-$(Version)-x64</OutputName>
+     <Platform>x64</Platform>
++    <!-- MSI validation (ICE) warnings are informational; don't fail the build on them. -->
++    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+     <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish</PublishDir>
+     <DefineConstants>PublishDir=$(PublishDir);Version=$(Version)</DefineConstants>
+   </PropertyGroup>
+diff --git a/src/Callosotomy.Service/Guardian.cs b/src/Callosotomy.Service/Guardian.cs
+index eaae940..5a364e6 100644
+--- a/src/Callosotomy.Service/Guardian.cs
++++ b/src/Callosotomy.Service/Guardian.cs
+@@ -177,7 +177,8 @@ internal sealed class Guardian : BackgroundService
+                 if (_mode == mode)
+                 {
+                     _health = BlockHealth.Bypassed;
+-                    Log.Bypassed(_log, mode, $"a test connection to {target} succeeded");
++                    if (_log.IsEnabled(LogLevel.Critical))
++                        Log.Bypassed(_log, mode, $"a test connection to {target} succeeded");
+                 }
+             }
+             finally
