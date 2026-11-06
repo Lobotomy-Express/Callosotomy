@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions" revision="1.0" schemaVersion="1.0">
+  <displayName>Callosotomy</displayName>
+  <description>Network isolation kill switch</description>
+  <resources>
+    <stringTable>
+      <string id="Callosotomy">Callosotomy</string>
+      <string id="AllowUsersToIsolate">Allow standard users to sever connections</string>
+      <string id="AllowUsersToIsolate_Help">Enabled or not configured: any signed-in user can cut the internet, local network or everything (a tightening action). Disabled: only administrators can.</string>
+      <string id="AllowUserRestore">Allow standard users to restore connections</string>
+      <string id="AllowUserRestore_Help">Enabled or not configured: users can lift a block they or someone else applied. Disabled: once a machine is severed only an administrator can restore it. Recommended Disabled for managed fleets, so malware running as the user cannot undo isolation.</string>
+      <string id="AllowInternetMode">Allow "Internet" mode</string>
+      <string id="AllowLocalMode">Allow "Local network" mode</string>
+      <string id="AllowAllMode">Allow "Everything" mode</string>
+      <string id="AllowMode_Help">Disabled: this mode cannot be selected. Restoring connections is always possible for users permitted to restore.</string>
+      <string id="SelfHeal">Repair tampering automatically</string>
+      <string id="SelfHeal_Help">Enabled or not configured: if a block rule is deleted, disabled or Windows Firewall is turned off while isolated, the service restores it within seconds and logs event 1200/1201. Disabled: tampering is only reported (event 1300).</string>
+      <string id="DropConnections">Drop established connections when severing</string>
+      <string id="DropConnections_Help">Enabled or not configured: open IPv4 TCP connections to blocked addresses are cut immediately so an attacker's existing session dies.</string>
+      <string id="Probe">Bypass detection probe</string>
+      <string id="Probe_Help">Enabled or not configured: while isolated from the internet the service attempts a TCP connection (no data sent) to the target every ~12 seconds. If it succeeds, the block has been bypassed and event 1300 is logged. Target must be an IP:port, default 1.1.1.1:443. Disabled: no probe is sent.</string>
+      <string id="ShowFloatingButton">Floating panic button</string>
+      <string id="ShowFloatingButton_Help">Enabled: the floating button is always shown. Disabled: never shown. Not configured: each user chooses.</string>
+    </stringTable>
+    <presentationTable>
+      <presentation id="Probe">
+        <textBox refId="ProbeTarget"><label>Probe target (IP:port)</label><defaultValue>1.1.1.1:443</defaultValue></textBox>
+      </presentation>
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Callosotomy MSI. Build on Windows with:  .\build.ps1
+  Installs to Program Files (writable only by administrators), registers the SYSTEM service
+  with automatic restart on failure, and starts the tray app for every user at sign-in.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="Callosotomy" Manufacturer="lobotomy-express" Version="$(Version)"
+           UpgradeCode="6C1E2B8A-4F0D-4C1B-9A7E-3D5F2A9C8B41" Scope="perMachine" Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Callosotomy is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Callosotomy" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="Callosotomy" Level="1">
+      <ComponentGroupRef Id="App" />
+      <ComponentRef Id="StartMenu" />
+    </Feature>
+
+    <ComponentGroup Id="App" Directory="INSTALLFOLDER">
+      <Component Id="ServiceExe">
+        <File Id="ServiceExe" Source="$(PublishDir)\Callosotomy.Service.exe" KeyPath="yes" />
+        <ServiceInstall Id="Service" Name="Callosotomy" DisplayName="Callosotomy Protection"
+                        Description="Enforces Callosotomy network isolation and watches for tampering."
+                        Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="ServiceControl" Name="Callosotomy" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+        <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\EventLog\Application\Callosotomy" ForceDeleteOnUninstall="yes" />
+      </Component>
+
+      <Component Id="TrayExe">
+        <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+                       Name="Callosotomy" Type="string" Value="&quot;[#TrayExe]&quot;" />
+      </Component>
+
+      <!-- Shared self-contained .NET runtime files. -->
+      <Files Include="$(PublishDir)\**">
+        <Exclude Files="$(PublishDir)\Callosotomy.Service.exe" />
+        <Exclude Files="$(PublishDir)\Callosotomy.exe" />
+        <Exclude Files="$(PublishDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="StartMenu" Directory="ProgramMenuFolder">
+      <Shortcut Id="TrayShortcut" Name="Callosotomy" Description="Network kill switch" Target="[#TrayExe]" WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\Callosotomy\Installer" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- On a real uninstall (not an upgrade), lift any active block so the machine is not left isolated. -->
+    <CustomAction Id="RemoveRules" FileRef="ServiceExe" ExeCommand="--remove-rules"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="RemoveRules" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

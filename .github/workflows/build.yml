@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      HAS_SIGNING: ${{ secrets.SIGNING_CERT_PFX_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test, publish and package
+        shell: pwsh
+        run: ./build.ps1
+
+      # Signing runs only when the repository has signing secrets configured.
+      - name: Sign
+        if: env.HAS_SIGNING == 'true'
+        env:
+          SIGNING_CERT: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'sign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_CERT))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+          & $signtool sign /f $pfx /p $env:SIGNING_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 artifacts\*.msi
+          Remove-Item $pfx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: callosotomy-msi
+          path: artifacts/*.msi
+          if-no-files-found: error

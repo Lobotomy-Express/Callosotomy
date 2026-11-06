@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copy to C:\Windows\PolicyDefinitions (or the Central Store) together with en-US\Callosotomy.adml. -->
+<policyDefinitions xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions" revision="1.0" schemaVersion="1.0">
+  <policyNamespaces>
+    <target prefix="callosotomy" namespace="LobotomyExpress.Policies.Callosotomy" />
+    <using prefix="windows" namespace="Microsoft.Policies.Windows" />
+  </policyNamespaces>
+  <resources minRequiredRevision="1.0" />
+  <categories>
+    <category name="Callosotomy" displayName="$(string.Callosotomy)" />
+  </categories>
+  <policies>
+    <policy name="AllowUsersToIsolate" class="Machine" displayName="$(string.AllowUsersToIsolate)" explainText="$(string.AllowUsersToIsolate_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowUsersToIsolate">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="AllowUserRestore" class="Machine" displayName="$(string.AllowUserRestore)" explainText="$(string.AllowUserRestore_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowUserRestore">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="AllowInternetMode" class="Machine" displayName="$(string.AllowInternetMode)" explainText="$(string.AllowMode_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowInternetMode">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="AllowLocalMode" class="Machine" displayName="$(string.AllowLocalMode)" explainText="$(string.AllowMode_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowLocalMode">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="AllowAllMode" class="Machine" displayName="$(string.AllowAllMode)" explainText="$(string.AllowMode_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowAllMode">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="SelfHeal" class="Machine" displayName="$(string.SelfHeal)" explainText="$(string.SelfHeal_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="SelfHeal">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="DropConnections" class="Machine" displayName="$(string.DropConnections)" explainText="$(string.DropConnections_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="DropConnections">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Probe" class="Machine" displayName="$(string.Probe)" explainText="$(string.Probe_Help)" presentation="$(presentation.Probe)" key="SOFTWARE\Policies\Callosotomy" valueName="ProbeEnabled">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+      <elements><text id="ProbeTarget" valueName="ProbeTarget" maxLength="64" /></elements>
+    </policy>
+    <policy name="ShowFloatingButton" class="Machine" displayName="$(string.ShowFloatingButton)" explainText="$(string.ShowFloatingButton_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="ShowFloatingButton">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+  </policies>
+</policyDefinitions>
