@@ -1,0 +1,51 @@
+diff --git a/installer/Callosotomy.Installer.wixproj b/installer/Callosotomy.Installer.wixproj
+index ba5427e..2d5ab9d 100644
+--- a/installer/Callosotomy.Installer.wixproj
++++ b/installer/Callosotomy.Installer.wixproj
+@@ -4,6 +4,9 @@
+     <Platform>x64</Platform>
+     <!-- MSI validation (ICE) warnings are informational; don't fail the build on them. -->
+     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
++    <!-- ICE38/43/57 assume Start-menu shortcuts are per-user. This package is per-machine
++         (Scope="perMachine" sets ALLUSERS=1), so the shortcut goes to the all-users Start menu. -->
++    <SuppressIces>ICE38;ICE43;ICE57</SuppressIces>
+     <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish</PublishDir>
+     <DefineConstants>PublishDir=$(PublishDir);Version=$(Version)</DefineConstants>
+   </PropertyGroup>
+diff --git a/installer/Package.wxs b/installer/Package.wxs
+index 9b4ed77..ff589bd 100644
+--- a/installer/Package.wxs
++++ b/installer/Package.wxs
+@@ -19,7 +19,6 @@
+ 
+     <Feature Id="Main" Title="Callosotomy" Level="1">
+       <ComponentGroupRef Id="App" />
+-      <ComponentRef Id="StartMenu" />
+     </Feature>
+ 
+     <ComponentGroup Id="App" Directory="INSTALLFOLDER">
+@@ -36,7 +35,11 @@
+       </Component>
+ 
+       <Component Id="TrayExe">
+-        <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes" />
++        <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes">
++          <!-- All-users Start menu shortcut (the package is per-machine, so ProgramMenuFolder is the common one). -->
++          <Shortcut Id="TrayShortcut" Directory="ProgramMenuFolder" Name="Callosotomy"
++                    Description="Network kill switch" WorkingDirectory="INSTALLFOLDER" Advertise="no" />
++        </File>
+         <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+                        Name="Callosotomy" Type="string" Value="&quot;[#TrayExe]&quot;" />
+       </Component>
+@@ -49,11 +52,6 @@
+       </Files>
+     </ComponentGroup>
+ 
+-    <Component Id="StartMenu" Directory="ProgramMenuFolder">
+-      <Shortcut Id="TrayShortcut" Name="Callosotomy" Description="Network kill switch" Target="[#TrayExe]" WorkingDirectory="INSTALLFOLDER" />
+-      <RegistryValue Root="HKLM" Key="SOFTWARE\Callosotomy\Installer" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+-    </Component>
+-
+     <!-- On a real uninstall (not an upgrade), lift any active block so the machine is not left isolated. -->
+     <CustomAction Id="RemoveRules" FileRef="ServiceExe" ExeCommand="--remove-rules"
+                   Execute="deferred" Impersonate="no" Return="ignore" />

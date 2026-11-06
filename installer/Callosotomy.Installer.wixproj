@@ -4,6 +4,9 @@
     <Platform>x64</Platform>
     <!-- MSI validation (ICE) warnings are informational; don't fail the build on them. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- ICE38/43/57 assume Start-menu shortcuts are per-user. This package is per-machine
+         (Scope="perMachine" sets ALLUSERS=1), so the shortcut goes to the all-users Start menu. -->
+    <SuppressIces>ICE38;ICE43;ICE57</SuppressIces>
     <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish</PublishDir>
     <DefineConstants>PublishDir=$(PublishDir);Version=$(Version)</DefineConstants>
   </PropertyGroup>

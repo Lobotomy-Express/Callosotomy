@@ -19,7 +19,6 @@
 
     <Feature Id="Main" Title="Callosotomy" Level="1">
       <ComponentGroupRef Id="App" />
-      <ComponentRef Id="StartMenu" />
     </Feature>
 
     <ComponentGroup Id="App" Directory="INSTALLFOLDER">
@@ -36,7 +35,11 @@
       </Component>
 
       <Component Id="TrayExe">
-        <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes" />
+        <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes">
+          <!-- All-users Start menu shortcut (the package is per-machine, so ProgramMenuFolder is the common one). -->
+          <Shortcut Id="TrayShortcut" Directory="ProgramMenuFolder" Name="Callosotomy"
+                    Description="Network kill switch" WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+        </File>
         <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
                        Name="Callosotomy" Type="string" Value="&quot;[#TrayExe]&quot;" />
       </Component>
@@ -48,11 +51,6 @@
         <Exclude Files="$(PublishDir)\**\*.pdb" />
       </Files>
     </ComponentGroup>
-
-    <Component Id="StartMenu" Directory="ProgramMenuFolder">
-      <Shortcut Id="TrayShortcut" Name="Callosotomy" Description="Network kill switch" Target="[#TrayExe]" WorkingDirectory="INSTALLFOLDER" />
-      <RegistryValue Root="HKLM" Key="SOFTWARE\Callosotomy\Installer" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
-    </Component>
 
     <!-- On a real uninstall (not an upgrade), lift any active block so the machine is not left isolated. -->
     <CustomAction Id="RemoveRules" FileRef="ServiceExe" ExeCommand="--remove-rules"
