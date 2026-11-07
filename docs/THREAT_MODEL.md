@@ -19,7 +19,7 @@ When a person or an administrator decides a Windows machine might be compromised
 | Remote attacker on the network | No | Only the local channel controls the service. The control pipe explicitly denies network logons, and the service opens no network ports. |
 | Malware running as the signed-in **standard user** | Only if policy allows users to restore (the default for home use) | Set **Allow standard users to restore connections = Disabled** on managed machines. Then only an administrator can lift a block. |
 | Malware that kills or edits the tray app | No | The tray app has no power of its own. It only asks the SYSTEM service, and the block stays in place without it. |
-| Malware that creates a fake control pipe | No | The service claims the pipe name first. The tray app checks that the process on the other end is the registered service executable and refuses anything else. |
+| Malware that creates a fake control pipe | No | The service claims the pipe name first. The tray app checks with the Service Control Manager that the process on the other end is the one running the registered service, and refuses anything else. |
 | Malware with **administrator** rights | **Yes, eventually** | Admins can stop services, edit firewall rules or uninstall. Callosotomy restores tampered rules within about 3 seconds, logs events 1200, 1201 and 1300, and shows **Bypassed** if a test connection gets out. This raises the cost and makes the attack noisy, but can't prevent it. |
 | Kernel-mode malware or a malicious network driver | **Yes** | Out of scope for any user-mode tool. The probe may still catch it. |
 

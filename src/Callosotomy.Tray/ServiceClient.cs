@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Callosotomy.Core;
-using Microsoft.Win32;
 
 namespace Callosotomy.Tray;
 
@@ -67,32 +66,18 @@ internal static class ServiceClient
         }
     }
 
+    /// <summary>
+    /// The process holding the pipe must be the one Windows' Service Control Manager says is
+    /// running the Callosotomy service. A standard user can't register or repoint that service,
+    /// so a squatting process can never pass this check.
+    /// </summary>
     private static void VerifyServer(NamedPipeClientStream pipe)
     {
-        if (!Native.GetNamedPipeServerProcessId(pipe.SafePipeHandle, out uint pid))
+        if (!Native.GetNamedPipeServerProcessId(pipe.SafePipeHandle, out uint serverPid))
             throw new SecurityException("Cannot identify pipe server.");
 
-        string? actual = Native.ProcessImagePath(pid);
-        string? expected = InstalledServicePath();
-        if (actual is null || expected is null
-            || !string.Equals(Path.GetFullPath(actual), Path.GetFullPath(expected), StringComparison.OrdinalIgnoreCase))
-        {
-            throw new SecurityException("Pipe server is not the installed Callosotomy service.");
-        }
-    }
-
-    /// <summary>The service executable as registered with Windows (admin-only key).</summary>
-    private static string? InstalledServicePath()
-    {
-        using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Callosotomy");
-        if (key?.GetValue("ImagePath", null, RegistryValueOptions.DoNotExpandEnvironmentNames) is not string raw) return null;
-        raw = Environment.ExpandEnvironmentVariables(raw.Trim());
-        if (raw.StartsWith('"'))
-        {
-            int end = raw.IndexOf('"', 1);
-            return end > 1 ? raw[1..end] : null;
-        }
-        int exe = raw.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
-        return exe > 0 ? raw[..(exe + 4)] : raw;
+        uint servicePid = Native.ServiceProcessId("Callosotomy");
+        if (servicePid == 0 || servicePid != serverPid)
+            throw new SecurityException("Pipe server is not the running Callosotomy service.");
     }
 }

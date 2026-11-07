@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" width="96" alt="Callosotomy logo: two brain hemispheres pulled apart">
+  <img src="assets/icon-256.png" width="112" alt="Callosotomy logo: two brain hemispheres pulled apart">
 </p>
 
 <h1 align="center">Callosotomy</h1>
@@ -29,7 +29,7 @@ A **corpus callosotomy** is brain surgery that cuts the bridge between the two h
 Download the MSI from [Releases](../../releases) and run it, or deploy it silently:
 
 ```powershell
-msiexec /i Callosotomy-0.1.1-x64.msi /qn
+msiexec /i Callosotomy-0.1.2-x64.msi /qn
 ```
 
 The installer:

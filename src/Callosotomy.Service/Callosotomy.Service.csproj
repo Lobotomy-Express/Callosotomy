@@ -8,6 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <InvariantGlobalization>true</InvariantGlobalization>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\callosotomy.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <!-- Microsoft's own hosting package; no third-party dependencies. -->

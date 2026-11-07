@@ -12,6 +12,10 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Callosotomy is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <!-- Icon shown in Settings > Apps and on the Start menu shortcut. -->
+    <Icon Id="AppIcon" SourceFile="..\assets\callosotomy.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Callosotomy" />
     </StandardDirectory>
@@ -38,7 +42,7 @@
         <File Id="TrayExe" Source="$(PublishDir)\Callosotomy.exe" KeyPath="yes">
           <!-- All-users Start menu shortcut (the package is per-machine, so ProgramMenuFolder is the common one). -->
           <Shortcut Id="TrayShortcut" Directory="ProgramMenuFolder" Name="Callosotomy"
-                    Description="Network kill switch" WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+                    Description="Network kill switch" WorkingDirectory="INSTALLFOLDER" Advertise="no" Icon="AppIcon" />
         </File>
         <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
                        Name="Callosotomy" Type="string" Value="&quot;[#TrayExe]&quot;" />

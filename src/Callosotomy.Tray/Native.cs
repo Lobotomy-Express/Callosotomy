@@ -48,32 +48,54 @@ internal static partial class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetNamedPipeServerProcessId(SafePipeHandle pipe, out uint processId);
 
-    private const uint ProcessQueryLimitedInformation = 0x1000;
+    // Service Control Manager: ask Windows which process is running the registered service.
+    private const uint ScManagerConnect = 0x0001;
+    private const uint ServiceQueryStatus = 0x0004;
+    private const int ScStatusProcessInfo = 0;
 
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    private static partial IntPtr OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint pid);
+    [LibraryImport("advapi32.dll", EntryPoint = "OpenSCManagerW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static partial IntPtr OpenSCManager(string? machine, string? database, uint access);
 
-    [LibraryImport("kernel32.dll")]
+    [LibraryImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static partial IntPtr OpenService(IntPtr scm, string name, uint access);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool CloseHandle(IntPtr handle);
+    private static unsafe partial bool QueryServiceStatusEx(IntPtr service, int infoLevel, byte* buffer, uint size, out uint needed);
 
-    [LibraryImport("kernel32.dll", EntryPoint = "QueryFullProcessImageNameW", SetLastError = true)]
+    [LibraryImport("advapi32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static unsafe partial bool QueryFullProcessImageName(IntPtr process, uint flags, char* buffer, ref uint size);
+    private static partial bool CloseServiceHandle(IntPtr handle);
 
-    public static unsafe string? ProcessImagePath(uint pid)
+    /// <summary>
+    /// Process ID of a running service, straight from the Service Control Manager, or 0.
+    /// Works for standard users (they hold SERVICE_QUERY_STATUS by default) and only an
+    /// administrator can change which executable the service runs.
+    /// </summary>
+    public static unsafe uint ServiceProcessId(string serviceName)
     {
-        IntPtr h = OpenProcess(ProcessQueryLimitedInformation, false, pid);
-        if (h == IntPtr.Zero) return null;
+        IntPtr scm = OpenSCManager(null, null, ScManagerConnect);
+        if (scm == IntPtr.Zero) return 0;
         try
         {
-            char* buffer = stackalloc char[1024];
-            uint size = 1024;
-            return QueryFullProcessImageName(h, 0, buffer, ref size) ? new string(buffer, 0, (int)size) : null;
+            IntPtr svc = OpenService(scm, serviceName, ServiceQueryStatus);
+            if (svc == IntPtr.Zero) return 0;
+            try
+            {
+                // SERVICE_STATUS_PROCESS: 9 DWORDs; dwProcessId is the 8th (offset 28).
+                byte* buffer = stackalloc byte[36];
+                return QueryServiceStatusEx(svc, ScStatusProcessInfo, buffer, 36, out _)
+                    ? *(uint*)(buffer + 28)
+                    : 0;
+            }
+            finally
+            {
+                CloseServiceHandle(svc);
+            }
         }
         finally
         {
-            CloseHandle(h);
+            CloseServiceHandle(scm);
         }
     }
 
