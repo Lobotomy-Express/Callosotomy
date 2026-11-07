@@ -31,6 +31,9 @@
         <ServiceInstall Id="Service" Name="Callosotomy" DisplayName="Callosotomy Protection"
                         Description="Enforces Callosotomy network isolation and watches for tampering."
                         Type="ownProcess" Start="auto" ErrorControl="normal" Account="LocalSystem" Vital="yes">
+          <!-- Start after the Base Filtering Engine and Windows Firewall so a saved block is re-applied at boot. -->
+          <ServiceDependency Id="BFE" />
+          <ServiceDependency Id="MpsSvc" />
           <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart"
                               ThirdFailureActionType="restart" RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
         </ServiceInstall>

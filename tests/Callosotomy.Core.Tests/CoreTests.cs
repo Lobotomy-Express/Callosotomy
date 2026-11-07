@@ -70,6 +70,9 @@ public class FirewallPlanTests
     [InlineData("255.255.255.255", false)]
     [InlineData("fe80::1", false)]
     [InlineData("fd00::1", false)]
+    [InlineData("64:ff9b::808:808", true)]
+    [InlineData("::1", false)]
+    [InlineData("ff02::fb", false)]
     public void Internet_set_contains_exactly_public_addresses(string ip, bool isInternet) =>
         Assert.Equal(isInternet, FirewallPlan.Internet.Any(r => r.Contains(IPAddress.Parse(ip))));
 
@@ -137,6 +140,39 @@ public class FirewallPlanTests
     [InlineData(IsolationMode.None, "8.8.8.8", false)]
     public void ShouldDrop_matches_the_mode(IsolationMode mode, string ip, bool expected) =>
         Assert.Equal(expected, FirewallPlan.ShouldDrop(mode, IPAddress.Parse(ip), new[] { IPAddress.Parse("192.168.1.1") }));
+}
+
+public class FirewallListTests
+{
+    [Theory]
+    [InlineData("10.0.0.0/255.0.0.0", "10.0.0.0/8")]
+    [InlineData("10.0.0.0/8", "10.0.0.0-10.255.255.255")]
+    [InlineData("1.2.3.4/255.255.255.255", "1.2.3.4")]
+    [InlineData("1.0.0.0-9.255.255.255, 11.0.0.0-11.0.0.255", "1.0.0.0-9.255.255.255,11.0.0.0/24")]
+    [InlineData("fe80::/10", "fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff")]
+    public void Firewall_formats_are_understood(string reported, string written)
+    {
+        Assert.True(IpRangeSet.TryParseFirewallList(reported, out var a));
+        Assert.True(IpRangeSet.TryParseFirewallList(written, out var b));
+        Assert.True(IpRangeSet.SameCoverage(a, b));
+    }
+
+    [Theory]
+    [InlineData("LocalSubnet")]
+    [InlineData("10.0.0.0/255.0.255.0")]
+    [InlineData("")]
+    [InlineData("*")]
+    public void Unknown_or_edited_values_are_rejected(string reported) =>
+        Assert.False(IpRangeSet.TryParseFirewallList(reported, out _));
+
+    [Fact]
+    public void Narrowed_list_is_detected()
+    {
+        var spec = FirewallPlan.Build(IsolationMode.Internet).First(r => r.RemoteAddresses != "*");
+        Assert.True(IpRangeSet.TryParseFirewallList(spec.RemoteAddresses, out var full));
+        Assert.True(IpRangeSet.TryParseFirewallList("1.0.0.0-9.255.255.255", out var narrowed));
+        Assert.False(IpRangeSet.SameCoverage(full, narrowed));
+    }
 }
 
 public class ProtocolTests

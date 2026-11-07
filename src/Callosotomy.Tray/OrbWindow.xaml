@@ -50,11 +50,24 @@
         <Ellipse.Effect><DropShadowEffect ShadowDepth="0" BlurRadius="14" Color="{Binding AccentColor}" Opacity="1"/></Ellipse.Effect>
       </Ellipse>
 
-      <!-- Mark + label -->
-      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False">
-        <local:BrainGlyph Width="42" Height="42" Split="{Binding Blocked}" Stroke="{Binding AccentSoft}" GlowColor="{Binding AccentColor}"/>
-        <TextBlock Text="{Binding OrbText}" Foreground="{Binding AccentSoft}" FontSize="11" FontWeight="SemiBold"
-                   HorizontalAlignment="Center" Margin="0,6,0,0">
+      <!-- Hemisphere hover highlights: left half = Internet, right half = Local network -->
+      <Grid IsHitTestVisible="False">
+        <Grid.Clip><EllipseGeometry Center="74,74" RadiusX="68" RadiusY="68"/></Grid.Clip>
+        <Rectangle x:Name="HoverLeft" Width="74" HorizontalAlignment="Left" Fill="White" Opacity="0"/>
+        <Rectangle x:Name="HoverRight" Width="74" HorizontalAlignment="Right" Fill="White" Opacity="0"/>
+      </Grid>
+
+      <!-- Press-and-hold progress ring -->
+      <Ellipse x:Name="HoldRing" Margin="2" StrokeThickness="3" Stroke="White" Opacity="0" IsHitTestVisible="False"
+               StrokeDashArray="151 151" StrokeDashOffset="151" RenderTransformOrigin="0.5,0.5">
+        <Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform>
+      </Ellipse>
+
+      <!-- The brain + label -->
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False" Margin="0,6,0,0">
+        <local:BrainArt Width="96" Height="96" Mode="{Binding Mode}" Reachable="{Binding Reachable}" Bypassed="{Binding Bypassed}"/>
+        <TextBlock Text="{Binding OrbText}" Foreground="{Binding AccentSoft}" FontSize="10" FontWeight="SemiBold"
+                   HorizontalAlignment="Center" Margin="0,-4,0,0">
           <TextBlock.Effect><DropShadowEffect ShadowDepth="0" BlurRadius="5" Opacity="0.8" Color="Black"/></TextBlock.Effect>
         </TextBlock>
       </StackPanel>

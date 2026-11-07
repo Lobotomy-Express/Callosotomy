@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -9,19 +10,28 @@ using Microsoft.Extensions.Logging;
 namespace Callosotomy.Service;
 
 /// <summary>
-/// Local control channel. A named pipe that:
-/// - refuses network clients outright (explicit deny for the NETWORK group),
-/// - lets interactive users read/write but never create pipe instances (blocks squatting),
-/// - accepts one short command per connection and drops slow or oversized clients.
+/// Local control channel, a named pipe hardened against the usual named-pipe attacks:
+/// <list type="bullet">
+/// <item>Squatting: the service only ever creates the pipe as its first instance, and always keeps
+/// a waiting instance open, so the name can never be taken over and later "joined".</item>
+/// <item>Remote use: the ACL denies the NETWORK group, and network-logon callers are refused
+/// again in code unless they are administrators.</item>
+/// <item>Hogging: a short read timeout and a per-process connection cap stop one program from
+/// tying up every slot and jamming the kill switch.</item>
+/// </list>
+/// One short command per connection; anything malformed is rejected and logged.
 /// </summary>
-internal sealed class ControlServer : BackgroundService
+internal sealed partial class ControlServer : BackgroundService
 {
-    private const int Listeners = 2;
-    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(3);
+    private const int MaxInstances = 16;
+    private const int MaxPerProcess = 2;
+    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(2);
+    private static readonly SecurityIdentifier NetworkSid = new(WellKnownSidType.NetworkSid, null);
 
     private readonly Guardian _guardian;
     private readonly ILogger<ControlServer> _log;
-    private int _firstInstanceClaimed;
+    private readonly Dictionary<uint, int> _perProcess = new();
+    private readonly SemaphoreSlim _slots = new(MaxInstances - 1, MaxInstances - 1);
 
     public ControlServer(Guardian guardian, ILogger<ControlServer> log)
     {
@@ -29,72 +39,150 @@ internal sealed class ControlServer : BackgroundService
         _log = log;
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
-        Task.WhenAll(Enumerable.Range(0, Listeners).Select(_ => ListenAsync(stoppingToken)));
-
-    private async Task ListenAsync(CancellationToken ct)
+    public override void Dispose()
     {
-        while (!ct.IsCancellationRequested)
+        _slots.Dispose();
+        base.Dispose();
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Claim the name as the very first instance. If something else already holds it, keep
+        // trying with FirstPipeInstance: never fall back to joining a pipe someone else created.
+        NamedPipeServerStream? waiting = null;
+        while (waiting is null && !stoppingToken.IsCancellationRequested)
         {
-            NamedPipeServerStream pipe;
             try
             {
-                pipe = CreatePipe();
+                waiting = CreateInstance(first: true);
             }
-            catch (UnauthorizedAccessException ex)
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
             {
                 Log.PipeSquatted(_log, ex);
-                await Task.Delay(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
-                continue;
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).ConfigureAwait(false);
+            }
+        }
+
+        while (!stoppingToken.IsCancellationRequested && waiting is not null)
+        {
+            try
+            {
+                await waiting.WaitForConnectionAsync(stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
             catch (IOException ex)
             {
-                Log.PipeSquatted(_log, ex);
-                await Task.Delay(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
+                Log.ClientDropped(_log, ex.GetType().Name, ex.Message);
+                // Replace the broken instance, creating the new one first so the name stays ours.
+                var broken = waiting;
+                waiting = await NextInstanceAsync(stoppingToken).ConfigureAwait(false);
+                await broken.DisposeAsync().ConfigureAwait(false);
+                _slots.Release();
                 continue;
             }
 
-            await using (pipe.ConfigureAwait(false))
-            {
-                try
-                {
-                    await pipe.WaitForConnectionAsync(ct).ConfigureAwait(false);
-                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    timeout.CancelAfter(ClientTimeout);
-                    await HandleAsync(pipe, timeout.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-                catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
-                {
-                    // Client vanished or timed out. Logged so a failure is never silent.
-                    Log.ClientDropped(_log, ex.GetType().Name, ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Log.RequestFailed(_log, ex);
-                }
-            }
+            var connected = waiting;
+            // Open the next instance *before* handing this one off, so one of ours always exists.
+            waiting = await NextInstanceAsync(stoppingToken).ConfigureAwait(false);
+            _ = ServeAsync(connected, stoppingToken);
         }
+
+        if (waiting is not null) await waiting.DisposeAsync().ConfigureAwait(false);
     }
 
-    private NamedPipeServerStream CreatePipe()
+    private async Task<NamedPipeServerStream?> NextInstanceAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await _slots.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    return CreateInstance(first: false);
+                }
+                catch
+                {
+                    _slots.Release();
+                    throw;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(200, ct).ConfigureAwait(false);
+            }
+        }
+        return null;
+    }
+
+    private static NamedPipeServerStream CreateInstance(bool first)
     {
         var security = new PipeSecurity();
-        security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        security.AddAccessRule(new PipeAccessRule(NetworkSid, PipeAccessRights.FullControl, AccessControlType.Deny));
         security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
         security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.InteractiveSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
 
-        // The very first instance must be ours: if another process already owns the name, fail loudly.
         var options = PipeOptions.Asynchronous | PipeOptions.WriteThrough;
-        if (Interlocked.Exchange(ref _firstInstanceClaimed, 1) == 0) options |= PipeOptions.FirstPipeInstance;
+        if (first) options |= PipeOptions.FirstPipeInstance;
 
         return NamedPipeServerStreamAcl.Create(
-            Protocol.PipeName, PipeDirection.InOut, Listeners, PipeTransmissionMode.Byte, options,
+            Protocol.PipeName, PipeDirection.InOut, MaxInstances, PipeTransmissionMode.Byte, options,
             inBufferSize: Protocol.MaxLineBytes, outBufferSize: Protocol.MaxLineBytes, security);
+    }
+
+    private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken ct)
+    {
+        uint pid = 0;
+        bool counted = false;
+        try
+        {
+            await using (pipe.ConfigureAwait(false))
+            {
+                if (!GetNamedPipeClientProcessId(pipe.SafePipeHandle, out pid)) pid = 0;
+                lock (_perProcess)
+                {
+                    _perProcess.TryGetValue(pid, out int n);
+                    if (pid != 0 && n >= MaxPerProcess)
+                    {
+                        Log.ClientDropped(_log, "Throttled", $"process {pid} already has {n} open connections");
+                        return;
+                    }
+                    _perProcess[pid] = n + 1;
+                    counted = true;
+                }
+
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(ClientTimeout);
+                await HandleAsync(pipe, timeout.Token).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or UnauthorizedAccessException)
+        {
+            Log.ClientDropped(_log, ex.GetType().Name, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log.RequestFailed(_log, ex);
+        }
+        finally
+        {
+            if (counted)
+            {
+                lock (_perProcess)
+                {
+                    if (--_perProcess[pid] <= 0) _perProcess.Remove(pid);
+                }
+            }
+            _slots.Release();
+        }
     }
 
     private async Task HandleAsync(NamedPipeServerStream pipe, CancellationToken ct)
@@ -103,8 +191,7 @@ internal sealed class ControlServer : BackgroundService
 
         // Identify the caller from the kernel, never from anything it sends.
         string user = "unknown";
-        bool isAdmin = false;
-        bool identified = false;
+        bool isAdmin = false, isNetwork = false, identified = false;
         try
         {
             pipe.RunAsClient(() =>
@@ -112,6 +199,7 @@ internal sealed class ControlServer : BackgroundService
                 using var id = WindowsIdentity.GetCurrent(TokenAccessLevels.Query);
                 user = id.Name;
                 isAdmin = new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
+                isNetwork = id.Groups?.Contains(NetworkSid) == true;
             });
             identified = true;
         }
@@ -120,9 +208,22 @@ internal sealed class ControlServer : BackgroundService
             Log.IdentifyFailed(_log, ex);
         }
 
-        string reply = identified
-            ? await DecideAsync(line, user, isAdmin, ct).ConfigureAwait(false)
-            : Protocol.FormatError(ProtocolErrors.Denied);
+        string reply;
+        if (!identified)
+        {
+            reply = Protocol.FormatError(ProtocolErrors.Denied);
+        }
+        else if (isNetwork && !isAdmin)
+        {
+            // Defence in depth: the ACL already denies network logons.
+            Log.Denied(_log, Sanitize(line), user, "network callers must be administrators");
+            reply = Protocol.FormatError(ProtocolErrors.Denied);
+        }
+        else
+        {
+            reply = await DecideAsync(line, user, isAdmin, ct).ConfigureAwait(false);
+        }
+
         byte[] bytes = Encoding.ASCII.GetBytes(reply + "\n");
         await pipe.WriteAsync(bytes, ct).ConfigureAwait(false);
         await pipe.FlushAsync(ct).ConfigureAwait(false);
@@ -185,4 +286,8 @@ internal sealed class ControlServer : BackgroundService
 
     private static string Sanitize(string? line) =>
         line is null ? "(none)" : new string(line.Take(40).Select(c => c is >= ' ' and <= '~' ? c : '?').ToArray());
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetNamedPipeClientProcessId(Microsoft.Win32.SafeHandles.SafePipeHandle pipe, out uint processId);
 }

@@ -1,52 +1,84 @@
 <p align="center">
-  <img src="assets/icon-256.png" width="112" alt="Callosotomy logo: two brain hemispheres pulled apart">
+  <img src="assets/icon-256.png" width="128" alt="Callosotomy logo: a glowing red brain split into two hemispheres">
 </p>
 
 <h1 align="center">Callosotomy</h1>
 
 <p align="center"><b>Sever the connection before it spreads.</b><br>
-An open-source network kill switch for Windows.</p>
+A free, open-source privacy and network kill switch for everyday Windows users.</p>
+
+<p align="center">
+  <img src="assets/states.png" width="640" alt="The four states: whole green brain when connected, left hemisphere red when the internet is cut, right hemisphere red when the local network is cut, both red when everything is cut">
+</p>
 
 ---
 
-A **corpus callosotomy** is brain surgery that cuts the bridge between the two hemispheres so a seizure can't spread from one side to the other. Callosotomy does the same for a computer under attack: one click cuts it off from the internet, the local network, or everything, so ransomware can't spread and an attacker loses their connection.
+## Why this exists
+
+Cyber attacks are hitting ordinary people more than ever: ransomware, scam pop-ups, malicious downloads, people snooping on public Wi-Fi, and apps quietly sending your data who-knows-where. Most protection tools are built for companies with security teams. **Callosotomy is built for everyone else.**
+
+It gives you one simple, beautiful control over who your PC can talk to:
+
+- **Going somewhere sketchy?** Cut the local network so nobody else on the café, hotel or airport Wi-Fi can reach your computer.
+- **Working on something private?** Cut the internet so nothing on your PC can phone home, upload or track you, while your printer and other home devices keep working.
+- **Clicked something you shouldn't have?** Cut everything in one press, before anything can spread or send your files away.
+- **Not using the internet right now?** Leave it off. A PC that isn't connected can't be attacked over the network.
+
+It's named after the **corpus callosotomy**, a brain surgery that cuts the bridge between the two hemispheres so a seizure can't spread from one side to the other. The tray icon is a brain: **green and whole** when you're connected, and it **splits and glows red** on the side you've cut.
+
+## Your privacy
+
+Callosotomy is a privacy tool, so it holds itself to the same standard:
+
+- **No accounts, no telemetry, no tracking, no ads.** It never collects or sends anything about you.
+- **No internet connection of its own.** The one exception is an optional check that only runs *while* you've cut the internet: it tries to open a connection to `1.1.1.1` (sending no data) to prove the block is really holding. You can turn this off.
+- **Fully open source** (GPL-3.0), so anyone can check exactly what it does.
 
 ## Features
 
-- **Three modes**
-  - **Internet**: blocks everything outside your network, *including DNS to your router*, which closes the classic DNS-tunnelling escape route. Local devices stay reachable.
-  - **Local network**: blocks other machines on your LAN so an infection can't spread sideways. Your gateway, DNS and DHCP stay reachable, so the internet keeps working.
-  - **Everything**: blocks every remote address in both directions.
-- **Enforced by a SYSTEM service.** Closing the app, killing the tray process or signing out does not lift a block. Blocks survive reboots and are re-applied at startup.
-- **Kills existing connections.** Severing drops established TCP sessions, not just new ones.
-- **Tamper detection and self-healing.** Every 3 seconds the service checks its firewall rules and Windows Firewall itself. If something deletes, disables or weakens them, they are restored and the event is logged. A periodic test connection (no data sent) confirms the block really holds; if it gets through, the app turns amber and says **Bypassed**.
-- **Frosted-glass interface.** A tray icon (a green joined brain when connected, a glowing red split brain when severed) opens a Windows 11 acrylic pane. There is an optional floating panic button.
-- **Instant hotkey.** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> severs everything from anywhere.
-- **Built for IT.** It installs from an MSI, is configured through Group Policy (ADMX included), writes stable Event Log IDs for your SIEM, and has a scriptable command line for remote response.
+- **Three switches**, shown on the brain:
+  - **Internet** (left hemisphere): blocks everything outside your home or office network, including DNS, which closes a common way malware sneaks data out. Your printer, TV and other local devices still work.
+  - **Local network** (right hemisphere): blocks other devices on the same network, which stops infections spreading and strangers on public Wi-Fi reaching you. The internet still works.
+  - **Everything** (both): full isolation.
+- **Hard to undo by accident or by malware.** A protected Windows service enforces the block. Closing the app, signing out or restarting doesn't lift it.
+- **Ends open connections**, not just new ones, so anything already talking to the outside world is cut off.
+- **Watches itself.** Every few seconds it checks the block is still in place. If anything weakens it, the block is restored and the brain turns **amber** to warn you.
+- **Clean, modern design.** A frosted-glass panel opens from the tray icon, and there's an optional floating brain button: click the **left half** for internet, the **right half** for local network, or **press and hold** to cut everything.
+- **One-key panic button:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> cuts everything from anywhere.
 
 ## Install
 
-Download the MSI from [Releases](../../releases) and run it, or deploy it silently:
+1. Download `Callosotomy-0.2.0-x64.msi` from [Releases](../../releases).
+2. Double-click it and follow the installer.
+3. Click the brain in the system tray, next to the clock. If you don't see it, click the **^** arrow and drag the brain onto the taskbar.
 
-```powershell
-msiexec /i Callosotomy-0.1.2-x64.msi /qn
-```
+Works on Windows 10 (1809 or later) and Windows 11. The frosted-glass panel needs Windows 11 22H2 or later; older versions get a solid dark panel.
 
-The installer:
-- puts the files in `C:\Program Files\Callosotomy`, which only administrators can change;
-- registers the **Callosotomy Protection** service to run as SYSTEM and restart automatically if it fails;
-- starts the tray app for every user when they sign in.
-
-Requires Windows 10 1809 or later. The acrylic pane needs Windows 11 22H2 or later; older versions get a solid dark pane.
+To uninstall, go to **Settings → Apps → Installed apps → Callosotomy → Uninstall**. Any active block is lifted first, so you're never left offline.
 
 ## Use
 
-| Action | How |
+| To do this | Do this |
 |---|---|
-| Open the pane | Click the brain icon in the system tray |
-| Sever everything | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>, or right-click the tray icon |
-| Restore | Pane → **Restore all connections** |
-| Floating button | Pane → **Floating button** |
+| Open the panel | Click the brain in the system tray |
+| Cut the internet only | Panel → **Internet**, or click the **left** half of the floating brain |
+| Cut the local network only | Panel → **Local network**, or click the **right** half of the floating brain |
+| Cut everything right now | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>, or **press and hold** the floating brain |
+| Reconnect | Panel → **Restore all connections**, or press and hold the floating brain again |
+| Show the floating brain | Panel → **Floating button** |
+
+**What the colours mean:**
+- **Green:** connected.
+- **Red:** that side is cut.
+- **Amber:** something tried to get around the block; unplug your network cable to be safe.
+- **Grey:** the protection service isn't running.
+
+## For IT and businesses
+
+Callosotomy also scales up: an MSI for silent deployment (`msiexec /i Callosotomy-0.2.0-x64.msi /qn`), Group Policy templates, Windows Event Log integration and a command line.
+
+<details>
+<summary>Command line, Group Policy and event IDs</summary>
 
 ### Command line
 
@@ -56,23 +88,23 @@ Callosotomy.exe --sever internet   # or: local, all
 Callosotomy.exe --restore
 ```
 
-Exit codes: `0` ok, `1` usage, `2` denied or bypassed, `3` service unreachable. This works over any remote-execution tool your EDR or RMM provides.
+Exit codes: `0` ok, `1` usage, `2` denied or bypassed, `3` service unreachable.
 
-## Group Policy
+### Group Policy
 
 Copy `policy\Callosotomy.admx` and `policy\en-US\Callosotomy.adml` into your PolicyDefinitions folder. The settings appear under **Computer Configuration → Administrative Templates → Callosotomy**.
 
 | Policy | Default | Notes |
 |---|---|---|
 | Allow standard users to sever connections | On | |
-| Allow standard users to restore connections | On | **Turn off on managed fleets**, so malware running as the user can't lift a block |
-| Allow Internet / Local / Everything mode | On | Turn off any modes you don't want offered |
+| Allow standard users to restore connections | On | Turn off on managed fleets, so malware running as the user can't lift a block |
+| Allow Internet / Local / Everything mode | On | |
 | Repair tampering automatically | On | |
 | Drop established connections | On | |
 | Bypass detection probe | On, `1.1.1.1:443` | Must be an IP address and port |
-| Floating panic button | User's choice | Force it on or off |
+| Floating panic button | User's choice | Force on or off |
 
-## Event log
+### Event log
 
 Source **Callosotomy** in the **Application** log:
 
@@ -81,40 +113,43 @@ Source **Callosotomy** in the **Application** log:
 | 1000 | Info | Service started |
 | 1100 | Warning | Mode changed (includes who changed it) |
 | 1101 | Info | Established connections dropped |
+| 1102 | Info | Network changed; local-network rules recalculated |
 | 1200 | Error | Tampering detected |
-| 1201 | Warning | Tampering repaired |
-| 1300 | Critical | **Block bypassed: disconnect the machine physically** |
+| 1201 | Warning | Tampering repaired, or a saved block re-applied |
+| 1300, 1301 | Critical | **Block bypassed: disconnect the machine physically** |
 | 1400 | Warning | Request denied |
-| 1401 | Critical | Control pipe hijack attempt |
+| 1401 | Critical | Control channel hijack attempt |
+| 1402, 1403 | Warning, Error | Control client dropped, or could not be identified |
 
-## What it can't do
+</details>
 
-Read [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). In short: **a software kill switch can't beat malware that already has administrator or kernel access on the same machine.** Callosotomy makes that much harder and loudly tells you when it happens. The only kill that can't be bypassed is pulling the network cable, or isolating the machine at the switch or router. Use Callosotomy as a fast first response, not your last line of defence.
+## Honest limits
 
-## Build
+No software can promise to stop an attacker who already has full administrator control of your PC: they can switch off any program, including this one. Callosotomy makes that much harder and **tells you loudly** when it happens. The one kill switch nothing can bypass is unplugging the network cable or turning off Wi-Fi at the router. The full details are in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
-Use Windows with the .NET 8 SDK:
+## Build from source
+
+Use Windows with the .NET 10 SDK:
 
 ```powershell
 .\build.ps1          # tests, self-contained publish, MSI in .\artifacts
 ```
 
-The core logic (address maths, firewall plans, protocol) is plain .NET 8, so you can test it on any OS with `dotnet test`.
-
 ```
 src/Callosotomy.Core      Pure logic: modes, IP-range maths, firewall rule plans, control protocol
-src/Callosotomy.Service   SYSTEM service: firewall enforcement, tamper checks, secured named pipe
-src/Callosotomy.Tray      WPF tray app: acrylic pane, frosted floating button, hotkey, command line
+src/Callosotomy.Service   Protected Windows service: firewall enforcement, tamper checks, secured control channel
+src/Callosotomy.Tray      Tray app: frosted panel, floating brain button, hotkey, command line
 installer/                WiX MSI
 policy/                   Group Policy templates
+assets/art/               Full-resolution brain artwork
 ```
 
 The only dependencies are .NET and Microsoft's own hosting package. There are no third-party libraries.
 
 ## Security
 
-Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md).
+Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[GPL-3.0](LICENSE). You're free to use it anywhere, including inside companies. If you distribute a modified version, you must share its source under the same licence.
+Code and artwork are licensed under [GPL-3.0](LICENSE) © lobotomy-express. You're free to use it anywhere. If you distribute a modified version, you must share its source under the same licence.

@@ -29,6 +29,9 @@ internal static partial class Log
     [LoggerMessage(EventId = 1300, Level = LogLevel.Critical, Message = "BLOCK BYPASSED in {Mode}: {Detail}. Disconnect this machine physically.")]
     public static partial void Bypassed(ILogger logger, IsolationMode mode, string detail);
 
+    [LoggerMessage(EventId = 1301, Level = LogLevel.Critical, Message = "BLOCK BYPASSED in {Mode}: a test connection to {Target} succeeded. Disconnect this machine physically.")]
+    public static partial void ProbeLeaked(ILogger logger, IsolationMode mode, System.Net.IPEndPoint target);
+
     [LoggerMessage(EventId = 1400, Level = LogLevel.Warning, Message = "Denied request '{Request}' from {User}: {Reason}.")]
     public static partial void Denied(ILogger logger, string request, string user, string reason);
 

@@ -5,11 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Pinned so a newer SDK on the build machine can't introduce new errors. -->
-    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+    <AnalysisLevel>10.0-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <Version>0.1.2</Version>
+    <Version>0.2.0</Version>
     <Company>lobotomy-express</Company>
     <Product>Callosotomy</Product>
     <Copyright>Copyright (c) 2026 lobotomy-express</Copyright>

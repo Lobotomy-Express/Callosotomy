@@ -25,6 +25,7 @@ internal sealed class Guardian : BackgroundService
     private IReadOnlyList<IPAddress> _infrastructure = Array.Empty<IPAddress>();
     private IReadOnlyList<RuleSpec> _specs = Array.Empty<RuleSpec>();
     private volatile bool _networkChanged;
+    private bool _needsApply;
 
     public Guardian(FirewallBackend firewall, ILogger<Guardian> log)
     {
@@ -45,9 +46,12 @@ internal sealed class Guardian : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // Typically Windows Firewall isn't ready yet. Keep the mode and retry every cycle
+            // until it applies; never silently give up on enforcing a saved block.
             Log.ApplyFailed(_log, restored, ex);
             _mode = restored;
-            _health = BlockHealth.Bypassed;
+            _health = restored == IsolationMode.None ? BlockHealth.Ok : BlockHealth.Bypassed;
+            _needsApply = true;
         }
         finally
         {
@@ -120,6 +124,12 @@ internal sealed class Guardian : BackgroundService
         try
         {
             mode = _mode;
+            if (_needsApply)
+            {
+                ApplyLocked(mode);   // throws (and retries next cycle) until the firewall is ready
+                _needsApply = false;
+                Log.Repaired(_log, mode);
+            }
             if (mode == IsolationMode.None) { Stamp(); return; }
 
             if (_networkChanged && mode == IsolationMode.Local)
@@ -177,8 +187,7 @@ internal sealed class Guardian : BackgroundService
                 if (_mode == mode)
                 {
                     _health = BlockHealth.Bypassed;
-                    if (_log.IsEnabled(LogLevel.Critical))
-                        Log.Bypassed(_log, mode, $"a test connection to {target} succeeded");
+                    Log.ProbeLeaked(_log, mode, target);
                 }
             }
             finally
@@ -190,6 +199,7 @@ internal sealed class Guardian : BackgroundService
 
     private void ApplyLocked(IsolationMode mode)
     {
+        _needsApply = true; // cleared only once the rules are fully in place
         _infrastructure = Network.Infrastructure();
         var specs = FirewallPlan.Build(mode, _infrastructure);
         if (mode != IsolationMode.None) _firewall.EnsureFirewallOn();
@@ -197,6 +207,7 @@ internal sealed class Guardian : BackgroundService
         _specs = specs;
         _mode = mode;
         _health = BlockHealth.Ok;
+        _needsApply = false;
         Stamp();
     }
 

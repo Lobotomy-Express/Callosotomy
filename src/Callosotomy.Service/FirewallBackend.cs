@@ -73,6 +73,15 @@ internal sealed class FirewallBackend
                 return "Windows Firewall was turned off for the active network profile";
         }
 
+        string? merge = LocalRulesIgnoredByPolicy(active);
+        if (merge is not null) return merge;
+
+        foreach (int p in ProfileTypes)
+        {
+            if ((active & p) != 0 && HasExcludedInterfaces(policy, p))
+                return "a network adapter was excluded from Windows Firewall";
+        }
+
         dynamic rules = policy.Rules;
         foreach (var spec in specs)
         {
@@ -88,8 +97,62 @@ internal sealed class FirewallBackend
             if (spec.RemoteAddresses == "*" && (string)rule.RemoteAddresses != "*")
                 return $"rule '{spec.Name}' was narrowed";
             if ((int)rule.Profiles != AllProfiles) return $"rule '{spec.Name}' profiles were changed";
+            if (spec.RemoteAddresses != "*")
+            {
+                // Compare coverage, not text: an attacker could narrow the list while leaving
+                // the probe's test address blocked, which the probe alone would never notice.
+                if (!IpRangeSet.TryParseFirewallList((string?)rule.RemoteAddresses, out var actual)
+                    || !IpRangeSet.TryParseFirewallList(spec.RemoteAddresses, out var expected)
+                    || !IpRangeSet.SameCoverage(actual, expected))
+                    return $"rule '{spec.Name}' addresses were changed";
+            }
+            if (spec.RemotePorts is not null
+                && !string.Equals(((string?)rule.RemotePorts)?.Replace(" ", "", StringComparison.Ordinal), spec.RemotePorts, StringComparison.Ordinal))
+                return $"rule '{spec.Name}' ports were changed";
         }
         return null;
+    }
+
+    /// <summary>
+    /// Group Policy can tell Windows Firewall to ignore locally created rules ("Apply local
+    /// firewall rules: No"). Our rules would then exist but do nothing.
+    /// </summary>
+    private static string? LocalRulesIgnoredByPolicy(int activeProfiles)
+    {
+        (int Flag, string[] Keys)[] map =
+        {
+            (1, new[] { "DomainProfile" }),
+            (2, new[] { "PrivateProfile", "StandardProfile" }),
+            (4, new[] { "PublicProfile" }),
+        };
+        foreach (var (flag, keys) in map)
+        {
+            if ((activeProfiles & flag) == 0) continue;
+            foreach (string k in keys)
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\WindowsFirewall\" + k);
+                if (key?.GetValue("AllowLocalPolicyMerge") is int v && v == 0)
+                    return "Group Policy tells Windows Firewall to ignore local rules";
+            }
+        }
+        return null;
+    }
+
+    private static bool HasExcludedInterfaces(dynamic policy, int profile)
+    {
+        try
+        {
+            object? value = policy.ExcludedInterfaces[profile];
+            return value is Array a && a.Length > 0;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Turns Windows Firewall back on for the active profiles. Our block rules do nothing while it is off.</summary>

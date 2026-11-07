@@ -36,7 +36,11 @@ public static class FirewallPlan
     internal static readonly IReadOnlyList<IpRange> NeverBlock = IpRangeSet.Parse(
         "0.0.0.0/8", "127.0.0.0/8", "::/128", "::1");
 
-    /// <summary>Every IPv4 address that is not local, multicast or loopback, plus global IPv6.</summary>
+    /// <summary>
+    /// Every address that is not local, multicast or loopback, in both families. For IPv6 this is
+    /// deliberately "everything else", not just 2000::/3, so translation prefixes such as NAT64
+    /// (64:ff9b::/96) that lead back to the IPv4 internet are covered too.
+    /// </summary>
     internal static readonly IReadOnlyList<IpRange> Internet = BuildInternet();
 
     /// <summary>DNS and DNS-over-TLS. Blocked to every address in Internet mode to close DNS tunnelling via the router.</summary>
@@ -45,14 +49,10 @@ public static class FirewallPlan
     /// <summary>All UDP ports except DHCP (67-68) and DHCPv6 (546-547), so the PC keeps its address in Local mode.</summary>
     internal const string UdpPortsExceptDhcp = "1-66,69-545,548-65535";
 
-    private static List<IpRange> BuildInternet()
-    {
-        var v4 = IpRangeSet.Subtract(
-            new[] { IpRange.AllV4 },
+    private static List<IpRange> BuildInternet() =>
+        IpRangeSet.Subtract(
+            new[] { IpRange.AllV4, IpRange.AllV6 },
             LocalUnicast.Concat(LocalMulticast).Concat(NeverBlock));
-        v4.Add(IpRange.Parse("2000::/3"));
-        return IpRangeSet.Normalize(v4);
-    }
 
     /// <summary>
     /// Builds the rules for a mode.

@@ -15,9 +15,7 @@
     <StackPanel>
       <!-- Header -->
       <DockPanel Margin="4,2,4,14">
-        <Border Width="28" Height="28" CornerRadius="9" Background="#24FFFFFF" BorderBrush="#4DFFFFFF" BorderThickness="1">
-          <local:BrainGlyph Width="18" Height="18" Split="{Binding Blocked}" Stroke="White"/>
-        </Border>
+        <local:BrainArt Width="30" Height="30" Mode="{Binding Mode}" Reachable="{Binding Reachable}" Bypassed="{Binding Bypassed}"/>
         <TextBlock Text="Callosotomy" FontSize="15" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center"/>
         <TextBlock Text="Ctrl + Alt + K" FontSize="12" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center"
                    ToolTip="Cuts everything instantly from anywhere"/>
@@ -26,8 +24,8 @@
       <!-- Status card -->
       <Border CornerRadius="20" Padding="16" Background="{StaticResource Card}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" Margin="0,0,0,14">
         <DockPanel>
-          <Border Width="44" Height="44" CornerRadius="22" Background="{Binding AccentTint}" VerticalAlignment="Center">
-            <local:BrainGlyph Width="26" Height="26" Split="{Binding Blocked}" Stroke="{Binding Accent}" GlowColor="{Binding AccentColor}"/>
+          <Border Width="56" Height="56" CornerRadius="28" Background="{Binding AccentTint}" VerticalAlignment="Center">
+            <local:BrainArt Width="48" Height="48" Mode="{Binding Mode}" Reachable="{Binding Reachable}" Bypassed="{Binding Bypassed}"/>
           </Border>
           <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding Title}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -69,7 +67,7 @@
               AutomationProperties.Name="Sever everything">
         <DockPanel>
           <Border Style="{StaticResource IconDisc}" Tag="{Binding AllOn}">
-            <local:BrainGlyph Width="22" Height="22" Split="{Binding AllOn}" Stroke="White"/>
+            <Path Style="{StaticResource IconStroke}" Data="M12,3 L20,6 V12 C20,17 16.5,20 12,21 C7.5,20 4,17 4,12 V6 Z M9,12 L11,14 L15,10"/>
           </Border>
           <ContentControl Style="{StaticResource Switch}" Tag="{Binding AllOn}" Foreground="{StaticResource SevereRed}" DockPanel.Dock="Right"/>
           <StackPanel Margin="14,0,10,0" VerticalAlignment="Center">

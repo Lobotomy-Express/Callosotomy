@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using Callosotomy.Core;
@@ -6,23 +7,25 @@ using Callosotomy.Core;
 namespace Callosotomy.Tray;
 
 /// <summary>
-/// The notification-area icon: a green joined brain while connected, a glowing red split brain
-/// when severed, amber when bypassed and grey when the service is offline.
+/// The notification-area icon: the neon brain, whole and green while connected, with the left
+/// hemisphere red when the internet is cut, the right red when the local network is cut, both
+/// red when everything is cut, amber when bypassed and grey when the service is offline.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
     private readonly NotifyIcon _icon;
-    private readonly Icon _live, _severed, _bypassed, _offline;
+    private readonly Dictionary<string, Icon> _icons = new(StringComparer.Ordinal);
     private readonly ToolStripMenuItem _orbItem;
-    private Icon? _current;
+    private string? _current;
 
     public TrayIcon(AppController controller)
     {
-        int size = SystemInformation.SmallIconSize.Width * 2; // crisp at 200% and downsampled cleanly at 100%
-        _live = BrainShape.RenderIcon(size, ToDrawing(StatusViewModel.Green), split: false);
-        _severed = BrainShape.RenderIcon(size, ToDrawing(StatusViewModel.Red), split: true);
-        _bypassed = BrainShape.RenderIcon(size, ToDrawing(StatusViewModel.Amber), split: true);
-        _offline = BrainShape.RenderIcon(size, ToDrawing(StatusViewModel.Grey), split: false);
+        int size = Math.Max(16, SystemInformation.SmallIconSize.Width);
+        foreach (string state in new[] { "green", "internet", "local", "all", "amber", "grey" })
+        {
+            using var bmp = BrainArtwork.TrayBitmap(state, size);
+            _icons[state] = Icon.FromHandle(bmp.GetHicon());
+        }
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open Callosotomy", null, (_, _) => controller.ShowPane());
@@ -35,14 +38,14 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit tray app (protection keeps running)", null, (_, _) => System.Windows.Application.Current.Shutdown());
 
-        _icon = new NotifyIcon { Icon = _offline, Text = "Callosotomy", ContextMenuStrip = menu, Visible = true };
+        _icon = new NotifyIcon { Icon = _icons["grey"], Text = "Callosotomy", ContextMenuStrip = menu, Visible = true };
         _icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) controller.ShowPane(); };
     }
 
     public void Update(StatusViewModel s)
     {
-        var next = !s.Reachable ? _offline : s.Bypassed ? _bypassed : s.Blocked ? _severed : _live;
-        if (!ReferenceEquals(next, _current)) { _icon.Icon = next; _current = next; }
+        string state = BrainArtwork.TrayState(s);
+        if (state != _current) { _icon.Icon = _icons[state]; _current = state; }
         string text = s.TrayText;
         _icon.Text = text.Length > 63 ? text[..63] : text;
         _orbItem.Checked = s.ShowOrb;
@@ -53,12 +56,10 @@ internal sealed class TrayIcon : IDisposable
     {
         _icon.Visible = false;
         _icon.Dispose();
-        foreach (var i in new[] { _live, _severed, _bypassed, _offline })
+        foreach (var i in _icons.Values)
         {
             Native.DestroyIcon(i.Handle);
             i.Dispose();
         }
     }
-
-    private static Color ToDrawing(System.Windows.Media.Color c) => Color.FromArgb(c.A, c.R, c.G, c.B);
 }

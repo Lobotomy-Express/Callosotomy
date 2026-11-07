@@ -22,6 +22,15 @@ internal sealed class AppController : IDisposable
 
     public StatusViewModel Status { get; } = new();
 
+    /// <summary>Internet + Local together is Everything; the pane and the floating button share this rule.</summary>
+    public static IsolationMode Combine(bool internet, bool local) => (internet, local) switch
+    {
+        (true, true) => IsolationMode.All,
+        (true, false) => IsolationMode.Internet,
+        (false, true) => IsolationMode.Local,
+        _ => IsolationMode.None,
+    };
+
     public AppController()
     {
         var (forced, value) = OrbPolicy();

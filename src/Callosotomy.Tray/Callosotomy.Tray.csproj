@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <OutputType>WinExe</OutputType>
     <RootNamespace>Callosotomy.Tray</RootNamespace>
     <AssemblyName>Callosotomy</AssemblyName>
@@ -13,6 +13,10 @@
     <!-- WinForms is only used for the tray icon; avoid ambiguous type names with WPF. -->
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Neon brain artwork, embedded as WPF resources (pack://application:,,,/Art/...) -->
+    <Resource Include="Art\*.png" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Callosotomy.Core\Callosotomy.Core.csproj" />
   </ItemGroup>

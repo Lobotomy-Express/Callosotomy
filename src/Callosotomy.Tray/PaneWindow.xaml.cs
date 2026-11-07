@@ -58,10 +58,10 @@ internal sealed partial class PaneWindow : Window
     }
 
     private async void OnInternet(object sender, RoutedEventArgs e) =>
-        await _controller.SetModeAsync(Combine(!_controller.Status.InternetOn, _controller.Status.LocalOn)).ConfigureAwait(true);
+        await _controller.SetModeAsync(AppController.Combine(!_controller.Status.InternetOn, _controller.Status.LocalOn)).ConfigureAwait(true);
 
     private async void OnLocal(object sender, RoutedEventArgs e) =>
-        await _controller.SetModeAsync(Combine(_controller.Status.InternetOn, !_controller.Status.LocalOn)).ConfigureAwait(true);
+        await _controller.SetModeAsync(AppController.Combine(_controller.Status.InternetOn, !_controller.Status.LocalOn)).ConfigureAwait(true);
 
     private async void OnAll(object sender, RoutedEventArgs e) =>
         await _controller.SetModeAsync(_controller.Status.AllOn ? IsolationMode.None : IsolationMode.All).ConfigureAwait(true);
@@ -70,12 +70,4 @@ internal sealed partial class PaneWindow : Window
         await _controller.SetModeAsync(IsolationMode.None).ConfigureAwait(true);
 
     private void OnToggleOrb(object sender, RoutedEventArgs e) => _controller.SetOrbVisible(!_controller.Status.ShowOrb);
-
-    private static IsolationMode Combine(bool internet, bool local) => (internet, local) switch
-    {
-        (true, true) => IsolationMode.All,
-        (true, false) => IsolationMode.Internet,
-        (false, true) => IsolationMode.Local,
-        _ => IsolationMode.None,
-    };
 }

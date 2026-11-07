@@ -152,4 +152,48 @@ public static class IpRangeSet
     }
 
     public static List<IpRange> Parse(params string[] items) => Normalize(items.Select(IpRange.Parse));
+
+    /// <summary>True when both lists cover exactly the same addresses.</summary>
+    public static bool SameCoverage(IEnumerable<IpRange> a, IEnumerable<IpRange> b) =>
+        Normalize(a).SequenceEqual(Normalize(b));
+
+    /// <summary>
+    /// Parses a Windows Firewall RemoteAddresses value as the firewall reports it back:
+    /// comma-separated single addresses, "start-end" ranges, and "address/mask" in either
+    /// prefix ("/8") or dotted ("/255.0.0.0") form. Keywords such as LocalSubnet are rejected,
+    /// because this tool never writes them; seeing one means the rule was edited.
+    /// </summary>
+    public static bool TryParseFirewallList(string? text, out List<IpRange> ranges)
+    {
+        ranges = new List<IpRange>();
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        foreach (string raw in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string token = raw;
+            int slash = token.IndexOf('/', StringComparison.Ordinal);
+            if (slash > 0 && token.IndexOf('.', slash) > slash)
+            {
+                if (!TryMaskToPrefix(token[(slash + 1)..], out int prefix)) return false;
+                token = token[..slash] + "/" + prefix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            try { ranges.Add(IpRange.Parse(token)); }
+            catch (FormatException) { return false; }
+            catch (ArgumentException) { return false; }
+        }
+        ranges = Normalize(ranges);
+        return ranges.Count > 0;
+    }
+
+    private static bool TryMaskToPrefix(string mask, out int prefix)
+    {
+        prefix = 0;
+        if (!System.Net.IPAddress.TryParse(mask, out var m) || m.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+            return false;
+        Span<byte> b = stackalloc byte[4];
+        m.TryWriteBytes(b, out _);
+        uint v = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(b);
+        prefix = System.Numerics.BitOperations.PopCount(v);
+        // contiguous mask: all ones followed by all zeros
+        return prefix == 0 ? v == 0 : v == uint.MaxValue << (32 - prefix);
+    }
 }

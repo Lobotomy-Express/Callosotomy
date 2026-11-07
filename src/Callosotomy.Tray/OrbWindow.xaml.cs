@@ -47,8 +47,10 @@ internal sealed partial class OrbWindow : Window
         IsVisibleChanged += (_, _) => { if (IsVisible && _frostSupported) _frost.Start(); else _frost.Stop(); };
         Closed += (_, _) => { _frost.Stop(); _grab?.Dispose(); };
         Disc.MouseLeftButtonDown += OnPress;
+        Disc.MouseMove += OnMove;
+        Disc.MouseLeftButtonUp += OnRelease;
         Disc.MouseEnter += (_, _) => Scale(1.04);
-        Disc.MouseLeave += (_, _) => Scale(1.0);
+        Disc.MouseLeave += (_, _) => { Scale(1.0); ShowHover(null); };
         controller.Status.PropertyChanged += OnStatusChanged;
 
         RestorePosition();
@@ -86,22 +88,99 @@ internal sealed partial class OrbWindow : Window
         DiscScale.BeginAnimation(ScaleTransform.ScaleYProperty, a);
     }
 
-    private async void OnPress(object sender, MouseButtonEventArgs e)
-    {
-        double x = Left, y = Top;
-        Scale(0.95);
-        try { DragMove(); } catch (InvalidOperationException) { }
-        Scale(1.04);
+    // ---- Interaction --------------------------------------------------------------
+    // Click the left hemisphere: toggle Internet. Click the right: toggle Local network.
+    // Press and hold anywhere for one second: sever everything (or restore, if anything is cut).
+    // Drag: move the button.
 
-        if (Math.Abs(Left - x) < 3 && Math.Abs(Top - y) < 3)
+    private enum Side { Left, Right }
+
+    private static readonly TimeSpan HoldTime = TimeSpan.FromSeconds(1);
+    private DispatcherTimer? _holdTimer;
+    private Point _pressPoint;
+    private Side _pressSide;
+    private bool _pressed, _holdFired;
+
+    private Side SideAt(Point p) => p.X < Disc.ActualWidth / 2 ? Side.Left : Side.Right;
+
+    private void OnPress(object sender, MouseButtonEventArgs e)
+    {
+        _pressed = true;
+        _holdFired = false;
+        _pressPoint = e.GetPosition(this);
+        _pressSide = SideAt(e.GetPosition(Disc));
+        Disc.CaptureMouse();
+        Scale(0.96);
+
+        HoldRing.BeginAnimation(OpacityProperty, new DoubleAnimation(0.9, new Duration(TimeSpan.FromMilliseconds(120))));
+        HoldRing.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, new DoubleAnimation(151, 0, new Duration(HoldTime)));
+        _holdTimer = new DispatcherTimer { Interval = HoldTime };
+        _holdTimer.Tick += async (_, _) =>
         {
+            StopHold();
+            _holdFired = true;
             var target = _controller.Status.Mode == IsolationMode.None ? IsolationMode.All : IsolationMode.None;
             await _controller.SetModeAsync(target).ConfigureAwait(true);
-        }
-        else
+        };
+        _holdTimer.Start();
+    }
+
+    private void OnMove(object sender, MouseEventArgs e)
+    {
+        if (_pressed)
         {
-            SavePosition();
+            var p = e.GetPosition(this);
+            if (!_holdFired && (Math.Abs(p.X - _pressPoint.X) > 4 || Math.Abs(p.Y - _pressPoint.Y) > 4)
+                && e.LeftButton == MouseButtonState.Pressed)
+            {
+                // Became a drag: cancel the click/hold and move the window instead.
+                _pressed = false;
+                StopHold();
+                Disc.ReleaseMouseCapture();
+                try { DragMove(); } catch (InvalidOperationException) { }
+                Scale(1.04);
+                SavePosition();
+            }
+            return;
         }
+        ShowHover(SideAt(e.GetPosition(Disc)));
+    }
+
+    private async void OnRelease(object sender, MouseButtonEventArgs e)
+    {
+        if (!_pressed) return;
+        _pressed = false;
+        StopHold();
+        Disc.ReleaseMouseCapture();
+        Scale(1.04);
+        if (_holdFired || !_controller.Status.Reachable) return;
+
+        var s = _controller.Status;
+        var target = _pressSide == Side.Left
+            ? AppController.Combine(!s.InternetOn, s.LocalOn)
+            : AppController.Combine(s.InternetOn, !s.LocalOn);
+        await _controller.SetModeAsync(target).ConfigureAwait(true);
+        ShowHover(_pressSide);
+    }
+
+    private void StopHold()
+    {
+        _holdTimer?.Stop();
+        _holdTimer = null;
+        HoldRing.BeginAnimation(OpacityProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(160))));
+    }
+
+    private void ShowHover(Side? side)
+    {
+        HoverLeft.Opacity = side == Side.Left ? 0.07 : 0;
+        HoverRight.Opacity = side == Side.Right ? 0.07 : 0;
+        var s = _controller.Status;
+        Disc.ToolTip = side switch
+        {
+            Side.Left => s.InternetOn ? "Internet: click to restore" : "Internet: click to sever",
+            Side.Right => s.LocalOn ? "Local network: click to restore" : "Local network: click to sever",
+            _ => null,
+        } + (side is null ? "" : "\nHold for one second to sever or restore everything. Drag to move.");
     }
 
     private void OnOpenPane(object sender, RoutedEventArgs e) => _controller.ShowPane();
