@@ -49,7 +49,7 @@ Callosotomy is a privacy tool, so it holds itself to the same standard:
 
 ## Install
 
-1. Download `Callosotomy-0.3.4-x64.msi` from [Releases](../../releases).
+1. Download `Callosotomy-0.3.5-x64.msi` from [Releases](../../releases).
 2. Double-click it and follow the installer.
 3. Click the brain in the system tray, next to the clock. If you don't see it, click the **^** arrow and drag the brain onto the taskbar.
 
@@ -86,7 +86,7 @@ App rules can only ever **take access away**. They can't open anything Windows F
 
 ## For IT and businesses
 
-Callosotomy also scales up: an MSI for silent deployment (`msiexec /i Callosotomy-0.3.4-x64.msi /qn`), Group Policy templates, Windows Event Log integration and a command line.
+Callosotomy also scales up: an MSI for silent deployment (`msiexec /i Callosotomy-0.3.5-x64.msi /qn`), Group Policy templates, Windows Event Log integration and a command line.
 
 <details>
 <summary>Command line, Group Policy and event IDs</summary>

@@ -20,6 +20,7 @@ internal sealed partial class MonitorWindow : Window
     private readonly DispatcherTimer _poll;
     private int _ticks;
     private bool _busy;
+    private int _acting;
     private bool _exiting;
 
     /// <summary>Really closes the window (used when the tray app exits).</summary>
@@ -57,7 +58,7 @@ internal sealed partial class MonitorWindow : Window
 
     private async Task PollAsync()
     {
-        if (_busy) return;
+        if (_busy || _acting > 0) return;
         _busy = true;
         try
         {
@@ -200,8 +201,9 @@ internal sealed partial class MonitorWindow : Window
     private async Task Run(Func<Task> action)
     {
         IsEnabled = false;
+        _acting++;
         try { await action().ConfigureAwait(true); }
-        finally { IsEnabled = true; }
+        finally { _acting--; IsEnabled = true; }
     }
 
     private void Show(string message) => _vm.ShowMessage(message);

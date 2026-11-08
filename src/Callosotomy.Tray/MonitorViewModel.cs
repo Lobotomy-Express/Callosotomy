@@ -121,8 +121,9 @@ internal sealed class MonitorViewModel : INotifyPropertyChanged
 
     public ObservableCollection<AppRow> Apps { get; } = new();
     public AppRow? Selected => Apps.FirstOrDefault(a => a.Key == _selectedKey) ?? Apps.FirstOrDefault();
-    public IReadOnlyList<RuleRow> Rules => Selected?.Policy?.Rules.Select((r, i) => new RuleRow { Rule = r, Index = i, Editable = Selected.CanToggle }).ToList()
-                                           ?? new List<RuleRow>();
+    public IReadOnlyList<RuleRow> Rules => _rules;
+    private IReadOnlyList<RuleRow> _rules = new List<RuleRow>();
+    private int _policyVersion;
     public IReadOnlyList<ConnectionRow> SelectedConnections => Selected is { } a ? a.Connections.Select(c => Row(a, c)).ToList() : new List<ConnectionRow>();
     public bool HasSelection => Selected is not null;
     public bool CanEditSelected => Selected?.CanToggle == true;
@@ -156,8 +157,10 @@ internal sealed class MonitorViewModel : INotifyPropertyChanged
 
     public async Task RefreshPoliciesAsync()
     {
+        int version = _policyVersion;
         var reply = await ServiceClient.PoliciesAsync().ConfigureAwait(true);
-        if (reply.Value is not null) _policies = reply.Value;
+        // A change saved while this request was in flight is newer: don't overwrite it with the old list.
+        if (reply.Value is not null && version == _policyVersion) _policies = reply.Value;
         Rebuild();
     }
 
@@ -344,6 +347,7 @@ internal sealed class MonitorViewModel : INotifyPropertyChanged
         var reply = await call.ConfigureAwait(true);
         if (reply.Value is not null)
         {
+            _policyVersion++;
             _policies = reply.Value;
             Message = done;
             Rebuild();
@@ -420,7 +424,17 @@ internal sealed class MonitorViewModel : INotifyPropertyChanged
     private void RaiseSelection()
     {
         Raise(nameof(Selected));
-        Raise(nameof(Rules));
+        // Rebuild the rule rows only when the rules actually changed, so a refresh never replaces
+        // a switch while it's being clicked.
+        var sel = Selected;
+        var rules = sel?.Policy?.Rules ?? Array.Empty<AppRule>();
+        bool editable = sel?.CanToggle == true;
+        if (rules.Count != _rules.Count || _rules.Any(r => r.Editable != editable)
+            || !rules.SequenceEqual(_rules.Select(r => r.Rule)))
+        {
+            _rules = rules.Select((r, i) => new RuleRow { Rule = r, Index = i, Editable = editable }).ToList();
+            Raise(nameof(Rules));
+        }
         Raise(nameof(SelectedConnections));
         Raise(nameof(HasSelection));
         Raise(nameof(CanEditSelected));

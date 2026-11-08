@@ -1,6 +1,7 @@
 <Application x:Class="Callosotomy.Tray.App" x:ClassModifier="internal"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Callosotomy.Tray"
              ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
     <FontFamily x:Key="UiFont">Segoe UI Variable Display, Segoe UI</FontFamily>
@@ -135,25 +136,25 @@
     <!-- ===== Network monitor ===== -->
     <SolidColorBrush x:Key="Muted2" Color="#99FFFFFF"/>
 
-    <!-- Clickable allow/block switch. Tag = allowed (green) / blocked (red). -->
-    <Style x:Key="AllowSwitch" TargetType="Button">
+    <!-- Allow (green) / block (red) switch. IsChecked = allowed. The knob scales with the switch size. -->
+    <Style x:Key="AllowSwitch" TargetType="local:SwitchButton">
       <Setter Property="Width" Value="40"/>
       <Setter Property="Height" Value="24"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
         <Setter.Value>
-          <ControlTemplate TargetType="Button">
+          <ControlTemplate TargetType="local:SwitchButton">
             <Border x:Name="Track" CornerRadius="12" Background="{StaticResource SevereRed}" BorderThickness="1" BorderBrush="Transparent">
-              <Ellipse x:Name="Knob" Width="20" Height="20" Fill="White" HorizontalAlignment="Left" Margin="1,0">
-                <Ellipse.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.3"/></Ellipse.Effect>
-              </Ellipse>
+              <Viewbox x:Name="Knob" HorizontalAlignment="Left" Margin="1">
+                <Ellipse Width="20" Height="20" Fill="White"><Ellipse.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.3"/></Ellipse.Effect></Ellipse>
+              </Viewbox>
             </Border>
             <ControlTemplate.Triggers>
-              <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+              <Trigger Property="IsChecked" Value="True">
                 <Setter TargetName="Track" Property="Background" Value="{StaticResource LiveGreen}"/>
                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
-              </DataTrigger>
+              </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="White"/></Trigger>
               <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Track" Property="Opacity" Value="0.4"/></Trigger>
             </ControlTemplate.Triggers>
@@ -163,20 +164,24 @@
     </Style>
 
     <!-- Plain on/off switch for rules (grey when off). -->
-    <Style x:Key="OnSwitch" TargetType="Button" BasedOn="{StaticResource AllowSwitch}">
+    <Style x:Key="OnSwitch" TargetType="local:SwitchButton">
       <Setter Property="Width" Value="34"/>
       <Setter Property="Height" Value="20"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
         <Setter.Value>
-          <ControlTemplate TargetType="Button">
+          <ControlTemplate TargetType="local:SwitchButton">
             <Border x:Name="Track" CornerRadius="10" Background="#40FFFFFF" BorderThickness="1" BorderBrush="Transparent">
-              <Ellipse x:Name="Knob" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="1,0"/>
+              <Viewbox x:Name="Knob" HorizontalAlignment="Left" Margin="1">
+                <Ellipse Width="16" Height="16" Fill="White"></Ellipse>
+              </Viewbox>
             </Border>
             <ControlTemplate.Triggers>
-              <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+              <Trigger Property="IsChecked" Value="True">
                 <Setter TargetName="Track" Property="Background" Value="#FF0A84FF"/>
                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
-              </DataTrigger>
+              </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="White"/></Trigger>
               <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Track" Property="Opacity" Value="0.4"/></Trigger>
             </ControlTemplate.Triggers>
