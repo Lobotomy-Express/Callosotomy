@@ -132,5 +132,140 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <!-- ===== Network monitor ===== -->
+    <SolidColorBrush x:Key="Muted2" Color="#99FFFFFF"/>
+
+    <!-- Clickable allow/block switch. Tag = allowed (green) / blocked (red). -->
+    <Style x:Key="AllowSwitch" TargetType="Button">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Height" Value="24"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Track" CornerRadius="12" Background="{StaticResource SevereRed}" BorderThickness="1" BorderBrush="Transparent">
+              <Ellipse x:Name="Knob" Width="20" Height="20" Fill="White" HorizontalAlignment="Left" Margin="1,0">
+                <Ellipse.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="1" Opacity="0.3"/></Ellipse.Effect>
+              </Ellipse>
+            </Border>
+            <ControlTemplate.Triggers>
+              <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                <Setter TargetName="Track" Property="Background" Value="{StaticResource LiveGreen}"/>
+                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+              </DataTrigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="White"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Track" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Plain on/off switch for rules (grey when off). -->
+    <Style x:Key="OnSwitch" TargetType="Button" BasedOn="{StaticResource AllowSwitch}">
+      <Setter Property="Width" Value="34"/>
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Track" CornerRadius="10" Background="#40FFFFFF" BorderThickness="1" BorderBrush="Transparent">
+              <Ellipse x:Name="Knob" Width="16" Height="16" Fill="White" HorizontalAlignment="Left" Margin="1,0"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                <Setter TargetName="Track" Property="Background" Value="#FF0A84FF"/>
+                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+              </DataTrigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Track" Property="BorderBrush" Value="White"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Track" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Small glass action button. -->
+    <Style x:Key="Chip" TargetType="Button">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="Padding" Value="8,3"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bg" CornerRadius="7" Background="#1AFFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="#2EFFFFFF"/></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bg" Property="BorderBrush" Value="White"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bg" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Segmented choice (radio button). -->
+    <Style x:Key="Segment" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bg" CornerRadius="7" Background="#12FFFFFF" BorderBrush="#26FFFFFF" BorderThickness="1" Padding="10,4" Margin="0,0,4,0">
+              <ContentPresenter HorizontalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bg" Property="Background" Value="#4D0A84FF"/>
+                <Setter TargetName="Bg" Property="BorderBrush" Value="#B35AAAFF"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="BorderBrush" Value="#80FFFFFF"/></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bg" Property="BorderBrush" Value="White"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Dark text box. -->
+    <Style x:Key="GlassBox" TargetType="TextBox">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="CaretBrush" Value="White"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border x:Name="Bg" CornerRadius="8" Background="#14FFFFFF" BorderBrush="#2EFFFFFF" BorderThickness="1" Padding="8,5">
+              <Grid>
+                <TextBlock x:Name="Hint" Text="{TemplateBinding Tag}" Foreground="#73FFFFFF" IsHitTestVisible="False" Visibility="Collapsed"/>
+                <ScrollViewer x:Name="PART_ContentHost"/>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Text" Value=""><Setter TargetName="Hint" Property="Visibility" Value="Visible"/></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bg" Property="BorderBrush" Value="#B35AAAFF"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="Pill" TargetType="Border">
+      <Setter Property="CornerRadius" Value="7"/>
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="Background" Value="#33FF453A"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+          <Setter Property="Background" Value="#3330D158"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
   </Application.Resources>
 </Application>

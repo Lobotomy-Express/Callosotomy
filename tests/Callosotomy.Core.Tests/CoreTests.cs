@@ -199,8 +199,42 @@ public class ProtocolTests
     [InlineData("SET ALL ")]
     [InlineData("SET 3")]
     [InlineData("DELETE")]
+    [InlineData("PUT 0")]
+    [InlineData("PUT 99999999")]
+    [InlineData("PUT 012")]
+    [InlineData("PUT -5")]
+    [InlineData("CONNS ")]
     public void Anything_else_is_rejected(string? line) =>
         Assert.False(Protocol.TryParseRequest(line, out _));
+
+    [Theory]
+    [InlineData("CONNS", Protocol.Verb.Connections, 0)]
+    [InlineData("POLICIES", Protocol.Verb.Policies, 0)]
+    [InlineData("PUT 512", Protocol.Verb.Put, 512)]
+    [InlineData("DEL 40", Protocol.Verb.Delete, 40)]
+    public void Data_requests_parse(string line, Protocol.Verb verb, int len)
+    {
+        Assert.True(Protocol.TryParseRequest(line, out var req));
+        Assert.Equal(verb, req.Verb);
+        Assert.Equal(len, req.BodyLength);
+    }
+
+    [Fact]
+    public void Policy_json_round_trips()
+    {
+        var p = new AppPolicy
+        {
+            Identity = new AppIdentity(AppKind.Service, "DiagTrack"),
+            DisplayName = "Telemetry",
+            AllowByDefault = false,
+            Rules = new[] { new AppRule { Action = RuleAction.Allow, Protocol = TrafficProtocol.Udp, Ports = "53", Destination = DestinationKind.Internet } },
+        };
+        string json = System.Text.Json.JsonSerializer.Serialize(p, CallosotomyJson.Default.AppPolicy);
+        var back = System.Text.Json.JsonSerializer.Deserialize(json, CallosotomyJson.Default.AppPolicy)!;
+        Assert.Equal(p.Identity, back.Identity);
+        Assert.Equal(p.Rules[0], back.Rules[0]);
+        Assert.Contains("\"service\"", json, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public void Oversized_request_is_rejected() =>

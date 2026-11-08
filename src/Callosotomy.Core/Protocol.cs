@@ -11,9 +11,16 @@ public static class Protocol
     public const string PipeName = "Callosotomy.Control.v1";
     public const int MaxLineBytes = 128;
 
-    public enum Verb { Status, Set }
+    public enum Verb { Status, Set, Connections, Policies, Put, Delete }
 
-    public readonly record struct Request(Verb Verb, IsolationMode Mode);
+    /// <summary>Largest JSON body a client may send (one policy).</summary>
+    public const int MaxRequestBody = 64 * 1024;
+
+    /// <summary>Largest JSON body the service sends (connection snapshot or policy list).</summary>
+    public const int MaxResponseBody = 4 * 1024 * 1024;
+
+    /// <summary>A request. Put and Delete are followed by <see cref="BodyLength"/> bytes of JSON.</summary>
+    public readonly record struct Request(Verb Verb, IsolationMode Mode, int BodyLength = 0);
 
     public readonly record struct Status(IsolationMode Mode, BlockHealth Health, long CheckedUnixMs);
 
@@ -26,6 +33,19 @@ public static class Protocol
         request = default;
         if (line is null || line.Length > MaxLineBytes) return false;
         if (line == "STATUS") { request = new(Verb.Status, IsolationMode.None); return true; }
+        if (line == "CONNS") { request = new(Verb.Connections, IsolationMode.None); return true; }
+        if (line == "POLICIES") { request = new(Verb.Policies, IsolationMode.None); return true; }
+        foreach (var (prefix, verb) in new[] { ("PUT ", Verb.Put), ("DEL ", Verb.Delete) })
+        {
+            if (line.StartsWith(prefix, StringComparison.Ordinal)
+                && int.TryParse(line.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int len)
+                && len is > 0 and <= MaxRequestBody
+                && line.Length == prefix.Length + len.ToString(CultureInfo.InvariantCulture).Length)
+            {
+                request = new(verb, IsolationMode.None, len);
+                return true;
+            }
+        }
         if (line.StartsWith("SET ", StringComparison.Ordinal) && TryParseMode(line[4..], out var mode))
         {
             request = new(Verb.Set, mode);
@@ -38,6 +58,25 @@ public static class Protocol
         string.Create(CultureInfo.InvariantCulture, $"OK {ModeName(s.Mode)} {HealthName(s.Health)} {s.CheckedUnixMs}");
 
     public static string FormatError(string code) => "ERR " + code;
+
+    public static string FormatDataHeader(int length) =>
+        "DATA " + length.ToString(CultureInfo.InvariantCulture);
+
+    public static string FormatBodyHeader(Verb verb, int length) => verb switch
+    {
+        Verb.Put => "PUT " + length.ToString(CultureInfo.InvariantCulture),
+        Verb.Delete => "DEL " + length.ToString(CultureInfo.InvariantCulture),
+        _ => throw new ArgumentOutOfRangeException(nameof(verb)),
+    };
+
+    /// <summary>Parses "DATA n" (a JSON body of n bytes follows).</summary>
+    public static bool TryParseDataHeader(string? line, out int length)
+    {
+        length = 0;
+        return line is not null && line.StartsWith("DATA ", StringComparison.Ordinal)
+            && int.TryParse(line.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out length)
+            && length is >= 0 and <= MaxResponseBody;
+    }
 
     /// <summary>Parses a server reply. Errors come back as <c>false</c> with <paramref name="error"/> set.</summary>
     public static bool TryParseResponse(string? line, out Status status, out string? error)
@@ -108,4 +147,7 @@ public static class ProtocolErrors
     public const string Denied = "denied";
     public const string ModeDisabled = "mode-disabled";
     public const string Failed = "failed";
+    public const string Invalid = "invalid";
+    public const string Protected = "protected";
+    public const string Limit = "limit";
 }

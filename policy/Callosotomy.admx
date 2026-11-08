@@ -18,6 +18,10 @@
       <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
       <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="AllowUserAppRules" class="Machine" displayName="$(string.AllowUserAppRules)" explainText="$(string.AllowUserAppRules_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowUserAppRules">
+      <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="AllowInternetMode" class="Machine" displayName="$(string.AllowInternetMode)" explainText="$(string.AllowMode_Help)" key="SOFTWARE\Policies\Callosotomy" valueName="AllowInternetMode">
       <parentCategory ref="Callosotomy" /><supportedOn ref="windows:SUPPORTED_Windows_10_0" />
       <enabledValue><decimal value="1" /></enabledValue><disabledValue><decimal value="0" /></disabledValue>

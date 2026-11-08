@@ -41,12 +41,27 @@ Let an everyday Windows user decide, simply and reliably, who their PC may talk 
   - The caller's identity comes from the Windows kernel (pipe client token), never from the message. Callers with a network logon are refused unless they are administrators, even though the pipe's access list already denies the network.
   - No secrets or credentials are stored.
   - There is no auto-updater, which is a common way attackers hijack software.
-  - Apart from .NET, the only dependency is Microsoft's own hosting package. There are no third-party libraries.
+  - Apart from .NET, the only dependencies are two Microsoft packages (the service host and `TraceEvent`). There are no third-party libraries.
   - Binaries live in `Program Files`, settings in `HKLM`; both can only be changed by administrators.
 - **Supply chain.** CI runs CodeQL with the extended security queries, and Dependabot watches the NuGet packages and GitHub Actions. Release MSIs are signed when signing secrets are configured.
+
+## App rules and the network monitor (v0.3)
+
+- **Rules only remove access.** The rule engine works out which traffic each app's rules block and writes *only block rules*, so an app rule can never open something Windows Firewall or the kill switch blocks. The compiler is checked in CI against the same evaluator the monitor uses, on thousands of random connections.
+- **The service builds every rule itself.** The tray app sends a small JSON policy (≤ 64 KB, depth ≤ 16). The service validates every field (absolute `.exe` paths only, service names and package SIDs by strict pattern, ports, domains, addresses, at most 64 rules per app and 500 apps) and writes firewall rules through the COM API. Nothing reaches a shell, so there's no command injection.
+- **Protected apps.** Callosotomy, Microsoft Defender, Windows Update, core networking services and system processes such as `svchost.exe` can't be given rules, so malware running as the user can't use app rules to blind the PC.
+- **Tighten freely, loosen with permission.** On managed PCs ("Allow standard users to restore connections" off), standard users can block but not unblock. The service checks this exactly, by evaluating the old and new rules over every combination of address, port and protocol.
+- **Privacy between users.** Standard users see only their own session's apps plus Windows services in the monitor. The service never tells a user whether a file exists.
+- **Tamper-checked.** App rules are verified with the kill-switch rules and restored if edited or deleted.
+- **Low overhead.** The connection table and the kernel network event stream (ETW) are only used while the monitor is open; the event session stops itself 30 seconds after the monitor closes, and its flow table is capped at 10,000 entries (new flows are dropped, never memory growth). Only addresses, ports, process IDs and byte counts are kept, for two minutes; packet contents are never seen. Domain names come from Windows' DNS cache using cache-only lookups (no network traffic). Instead of re-reading every rule every few seconds, the full rule check runs when Windows reports a firewall registry change, with a 30-second backstop.
 
 ## Known limitations
 
 - **Local mode leaves some things reachable.** ICMP stays allowed, so IPv6 neighbour discovery to the gateway still works. Infrastructure IPs (gateways, DNS and DHCP servers) also stay reachable. A compromised router is therefore still reachable in Local mode. Use **Everything** if you suspect the router.
 - **Internet mode blocks DNS to every address, including local DNS servers.** Local name resolution through the router stops working; mDNS and LLMNR still work.
 - **What the tamper check covers.** Every 3 seconds it confirms that each rule exists, is enabled, blocks, and keeps its direction, protocol, profiles, ports and **exact address coverage**. It also confirms that Windows Firewall is on, that no network adapter has been excluded from it, and that Group Policy hasn't told it to ignore local rules. The bypass probe is the final backstop for anything below the firewall.
+- **Domain rules trust DNS.** A domain rule applies to the addresses Windows resolved that name to. If an app connects before Callosotomy notices a new address (it checks every 5 seconds while domain rules exist), the first attempt may be decided by the app's default. A malicious DNS server could also point an allowed domain at another address, though only the app that rule belongs to would benefit.
+- **Program rules match the file path.** Apps that install each update into a new folder (some Electron apps) need their rules re-created after updating. Matching by publisher signature needs the v0.4 filtering engine.
+- **Service rules need a service SID.** Windows applies per-service firewall rules only to services that have a service SID; nearly all built-in services do.
+- **Monitor coverage.** With the event stream running the monitor sees every TCP and UDP flow. If the stream can't start (event 1122), it falls back to the connection table, which misses UDP destinations and sub-second connections. Blocking is unaffected either way. UDP traffic from Windows services is attributed to the service through the UDP socket table; if that lookup fails it shows as `svchost.exe`.
+- **The domain list uses an undocumented Windows function** (`DnsGetCacheDataTable`). If a future Windows removes it, names stop appearing in the monitor; rules by address keep working.

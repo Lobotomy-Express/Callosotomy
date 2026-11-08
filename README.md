@@ -44,11 +44,12 @@ Callosotomy is a privacy tool, so it holds itself to the same standard:
 - **Ends open connections**, not just new ones, so anything already talking to the outside world is cut off.
 - **Watches itself.** Every few seconds it checks the block is still in place. If anything weakens it, the block is restored and the brain turns **amber** to warn you.
 - **Clean, modern design.** A frosted-glass panel opens from the tray icon, and there's an optional floating brain button: click the **left half** for internet, the **right half** for local network, or **press and hold** to cut everything.
+- **Network monitor with per-app firewall rules.** See every app that's using the network and what it's talking to, by name (`youtube.com`, not just an IP address), including Windows services hidden inside `svchost.exe`. It watches Windows' own network event stream, so it also catches UDP traffic (QUIC/HTTP3, DNS, games, calls) and connections that last a fraction of a second, with how much data each one used. Flip an app's switch to block it, or add precise rules: allow Spotify only to `*.spotify.com` on port 443, block an app from the internet but not your printer, block a single tracker. The most specific rule wins, and one click turns any live connection into a rule.
 - **One-key panic button:** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd> cuts everything from anywhere.
 
 ## Install
 
-1. Download `Callosotomy-0.2.0-x64.msi` from [Releases](../../releases).
+1. Download `Callosotomy-0.3.1-x64.msi` from [Releases](../../releases).
 2. Double-click it and follow the installer.
 3. Click the brain in the system tray, next to the clock. If you don't see it, click the **^** arrow and drag the brain onto the taskbar.
 
@@ -66,6 +67,16 @@ To uninstall, go to **Settings → Apps → Installed apps → Callosotomy → U
 | Cut everything right now | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>K</kbd>, or **press and hold** the floating brain |
 | Reconnect | Panel → **Restore all connections**, or press and hold the floating brain again |
 | Show the floating brain | Panel → **Floating button** |
+| See what's talking to the internet | Panel → **Network monitor** |
+| Block an app | Network monitor → flip the app's switch to red |
+| Block one site or port for an app | Network monitor → **Block site** or **Block port** on a live connection |
+| Let an app reach only one place | Network monitor → **Allow only this** on a live connection |
+
+### How app rules work
+
+Each app has a **default** (its switch: green = allowed, red = blocked) plus any number of **rules**. A rule says *allow* or *block*, for a direction, a protocol, ports, and a destination (anywhere, the internet, your local network, a domain like `*.spotify.com`, or addresses). When rules overlap, **the most specific one wins**: an address beats a domain, a domain beats "internet", and a rule with a port beats one without. On a tie, block wins.
+
+App rules can only ever **take access away**. They can't open anything Windows Firewall blocks, and the brain kill switch always wins over them.
 
 **What the colours mean:**
 - **Green:** connected.
@@ -75,7 +86,7 @@ To uninstall, go to **Settings → Apps → Installed apps → Callosotomy → U
 
 ## For IT and businesses
 
-Callosotomy also scales up: an MSI for silent deployment (`msiexec /i Callosotomy-0.2.0-x64.msi /qn`), Group Policy templates, Windows Event Log integration and a command line.
+Callosotomy also scales up: an MSI for silent deployment (`msiexec /i Callosotomy-0.3.1-x64.msi /qn`), Group Policy templates, Windows Event Log integration and a command line.
 
 <details>
 <summary>Command line, Group Policy and event IDs</summary>
@@ -103,6 +114,7 @@ Copy `policy\Callosotomy.admx` and `policy\en-US\Callosotomy.adml` into your Pol
 | Drop established connections | On | |
 | Bypass detection probe | On, `1.1.1.1:443` | Must be an IP address and port |
 | Floating panic button | User's choice | Force on or off |
+| Allow standard users to create app rules | On | Loosening a rule also needs "restore connections" |
 
 ### Event log
 
@@ -114,6 +126,10 @@ Source **Callosotomy** in the **Application** log:
 | 1100 | Warning | Mode changed (includes who changed it) |
 | 1101 | Info | Established connections dropped |
 | 1102 | Info | Network changed; local-network rules recalculated |
+| 1110 | Warning | App rules changed (includes who changed them) |
+| 1111 | Info | Connections dropped after an app was blocked |
+| 1120, 1121 | Info | Network monitor event stream started or stopped |
+| 1122 | Warning | Event stream unavailable; monitor falls back to the connection table |
 | 1200 | Error | Tampering detected |
 | 1201 | Warning | Tampering repaired, or a saved block re-applied |
 | 1300, 1301 | Critical | **Block bypassed: disconnect the machine physically** |
@@ -136,15 +152,15 @@ Use Windows with the .NET 10 SDK:
 ```
 
 ```
-src/Callosotomy.Core      Pure logic: modes, IP-range maths, firewall rule plans, control protocol
+src/Callosotomy.Core      Pure logic: modes, IP-range maths, firewall rule plans, app-rule engine, control protocol
 src/Callosotomy.Service   Protected Windows service: firewall enforcement, tamper checks, secured control channel
-src/Callosotomy.Tray      Tray app: frosted panel, floating brain button, hotkey, command line
+src/Callosotomy.Tray      Tray app: frosted panel, network monitor, floating brain button, hotkey, command line
 installer/                WiX MSI
 policy/                   Group Policy templates
 assets/art/               Full-resolution brain artwork
 ```
 
-The only dependencies are .NET and Microsoft's own hosting package. There are no third-party libraries.
+The only dependencies are .NET and two Microsoft packages: the Windows service host and `TraceEvent` (for reading Windows' network event stream). There are no third-party libraries.
 
 ## Security
 

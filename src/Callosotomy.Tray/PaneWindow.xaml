@@ -92,6 +92,21 @@
         </StackPanel>
       </Border>
 
+      <!-- Network monitor -->
+      <Button Style="{StaticResource Row}" Click="OnMonitor" IsEnabled="{Binding Reachable}" Margin="0,0,0,8"
+              AutomationProperties.Name="Open network monitor">
+        <DockPanel>
+          <Border Style="{StaticResource IconDisc}" Tag="False">
+            <Path Style="{StaticResource IconStroke}" Data="M3,12 H7 L10,5 L14,19 L17,12 H21"/>
+          </Border>
+          <TextBlock DockPanel.Dock="Right" Text="›" FontSize="20" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+          <StackPanel Margin="14,0,10,0" VerticalAlignment="Center">
+            <TextBlock Text="Network monitor" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="See and control what each app talks to" FontSize="12.5" Foreground="{StaticResource TextMuted}"/>
+          </StackPanel>
+        </DockPanel>
+      </Button>
+
       <!-- Floating button -->
       <Button Style="{StaticResource Row}" Click="OnToggleOrb" IsEnabled="{Binding OrbToggleEnabled}" Margin="0,0,0,14"
               AutomationProperties.Name="Show floating button">

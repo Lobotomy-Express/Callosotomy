@@ -18,6 +18,7 @@ internal sealed class AppController : IDisposable
     private readonly HwndSource _messageWindow;
     private PaneWindow? _pane;
     private OrbWindow? _orb;
+    private MonitorWindow? _monitor;
     private bool _polling;
 
     public StatusViewModel Status { get; } = new();
@@ -99,6 +100,15 @@ internal sealed class AppController : IDisposable
         _ = RefreshAsync();
     }
 
+    public void ShowMonitor()
+    {
+        _pane?.Hide();
+        _monitor ??= new MonitorWindow();
+        _monitor.Show();
+        if (_monitor.WindowState == System.Windows.WindowState.Minimized) _monitor.WindowState = System.Windows.WindowState.Normal;
+        _monitor.Activate();
+    }
+
     public void SetOrbVisible(bool visible)
     {
         if (Status.OrbLocked) return;
@@ -146,6 +156,7 @@ internal sealed class AppController : IDisposable
         Native.UnregisterHotKey(_messageWindow.Handle, HotkeyId);
         _messageWindow.Dispose();
         _orb?.Close();
+        _monitor?.ForceClose();
         _pane?.Close();
         _tray.Dispose();
     }

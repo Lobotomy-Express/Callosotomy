@@ -4,7 +4,7 @@ namespace Callosotomy.Core;
 
 public enum RuleDirection { Inbound = 1, Outbound = 2 }
 
-public enum RuleProtocol { Any = 256, Tcp = 6, Udp = 17 }
+public enum RuleProtocol { Any = 256, Tcp = 6, Udp = 17, Icmp4 = 1, Icmp6 = 58 }
 
 /// <summary>One block rule, in the shape the Windows Firewall API expects.</summary>
 public sealed record RuleSpec(
@@ -12,7 +12,15 @@ public sealed record RuleSpec(
     RuleDirection Direction,
     RuleProtocol Protocol,
     string RemoteAddresses,
-    string? RemotePorts);
+    string? RemotePorts)
+{
+    /// <summary>Restrict the rule to one program (full path).</summary>
+    public string? Program { get; init; }
+    /// <summary>Restrict the rule to one Windows service.</summary>
+    public string? Service { get; init; }
+    /// <summary>Restrict the rule to one Store app (AppContainer SID).</summary>
+    public string? PackageSid { get; init; }
+}
 
 /// <summary>
 /// Turns an <see cref="IsolationMode"/> into concrete block rules. Pure and deterministic,
@@ -106,9 +114,15 @@ public static class FirewallPlan
         return rules;
     }
 
+    /// <summary>True when an address is on the internet (not local, multicast or loopback).</summary>
+    public static bool IsInternet(IPAddress address) => Internet.Any(r => r.Contains(address));
+
     /// <summary>Every rule name this tool could ever create, for clean removal.</summary>
     public static bool IsOurs(string? ruleName) =>
         ruleName is not null && ruleName.StartsWith(RulePrefix + ":", StringComparison.Ordinal);
+
+    /// <summary>Rules owned by the kill switch (all of ours except per-app rules).</summary>
+    public static bool IsKillSwitchRule(string? ruleName) => IsOurs(ruleName) && !AppRuleEngine.IsAppRule(ruleName);
 
     /// <summary>True when an established connection to <paramref name="remote"/> should be cut for this mode.</summary>
     public static bool ShouldDrop(IsolationMode mode, IPAddress remote, IEnumerable<IPAddress>? infrastructure = null)

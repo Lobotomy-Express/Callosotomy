@@ -29,6 +29,7 @@ internal sealed class TrayIcon : IDisposable
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open Callosotomy", null, (_, _) => controller.ShowPane());
+        menu.Items.Add("Network monitor", null, (_, _) => controller.ShowMonitor());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Sever everything", null, async (_, _) => await controller.SetModeAsync(IsolationMode.All).ConfigureAwait(true));
         menu.Items.Add("Restore all connections", null, async (_, _) => await controller.SetModeAsync(IsolationMode.None).ConfigureAwait(true));

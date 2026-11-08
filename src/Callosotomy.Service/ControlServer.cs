@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
 using Callosotomy.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,7 @@ internal sealed partial class ControlServer : BackgroundService
 {
     private const int MaxInstances = 16;
     private const int MaxPerProcess = 2;
-    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(4);
     private static readonly SecurityIdentifier NetworkSid = new(WellKnownSidType.NetworkSid, null);
 
     private readonly Guardian _guardian;
@@ -135,7 +136,7 @@ internal sealed partial class ControlServer : BackgroundService
 
         return NamedPipeServerStreamAcl.Create(
             Protocol.PipeName, PipeDirection.InOut, MaxInstances, PipeTransmissionMode.Byte, options,
-            inBufferSize: Protocol.MaxLineBytes, outBufferSize: Protocol.MaxLineBytes, security);
+            inBufferSize: 4096, outBufferSize: 64 * 1024, security);
     }
 
     private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken ct)
@@ -188,6 +189,9 @@ internal sealed partial class ControlServer : BackgroundService
     private async Task HandleAsync(NamedPipeServerStream pipe, CancellationToken ct)
     {
         string? line = await ReadLineAsync(pipe, ct).ConfigureAwait(false);
+        byte[]? body = null;
+        if (Protocol.TryParseRequest(line, out var parsed) && parsed.BodyLength > 0)
+            body = await ReadExactlyAsync(pipe, parsed.BodyLength, ct).ConfigureAwait(false);
 
         // Identify the caller from the kernel, never from anything it sends.
         string user = "unknown";
@@ -209,6 +213,7 @@ internal sealed partial class ControlServer : BackgroundService
         }
 
         string reply;
+        byte[]? data = null;
         if (!identified)
         {
             reply = Protocol.FormatError(ProtocolErrors.Denied);
@@ -219,6 +224,12 @@ internal sealed partial class ControlServer : BackgroundService
             Log.Denied(_log, Sanitize(line), user, "network callers must be administrators");
             reply = Protocol.FormatError(ProtocolErrors.Denied);
         }
+        else if (parsed.Verb is Protocol.Verb.Connections or Protocol.Verb.Policies or Protocol.Verb.Put or Protocol.Verb.Delete
+                 && Protocol.TryParseRequest(line, out _))
+        {
+            uint session = GetNamedPipeClientSessionId(pipe.SafePipeHandle, out uint sid) ? sid : uint.MaxValue;
+            (reply, data) = await AppRequestAsync(parsed, body, user, isAdmin, session, ct).ConfigureAwait(false);
+        }
         else
         {
             reply = await DecideAsync(line, user, isAdmin, ct).ConfigureAwait(false);
@@ -226,7 +237,146 @@ internal sealed partial class ControlServer : BackgroundService
 
         byte[] bytes = Encoding.ASCII.GetBytes(reply + "\n");
         await pipe.WriteAsync(bytes, ct).ConfigureAwait(false);
+        if (data is not null) await pipe.WriteAsync(data, ct).ConfigureAwait(false);
         await pipe.FlushAsync(ct).ConfigureAwait(false);
+    }
+
+    // ---- App rules --------------------------------------------------------------------
+
+    private async Task<(string Reply, byte[]? Data)> AppRequestAsync(Protocol.Request req, byte[]? body, string user, bool isAdmin, uint session, CancellationToken ct)
+    {
+        var policy = ServicePolicy.Load();
+        bool canEdit = isAdmin || policy.AllowUserAppRules;
+        bool canLoosen = isAdmin || (policy.AllowUserAppRules && policy.AllowUserRestore);
+
+        switch (req.Verb)
+        {
+            case Protocol.Verb.Connections:
+                var snapshot = _guardian.Connections();
+                if (!isAdmin)
+                {
+                    // Standard users see their own session's apps plus Windows services (session 0),
+                    // never other signed-in users' programs.
+                    snapshot = snapshot with
+                    {
+                        Connections = snapshot.Connections
+                            .Where(c => ProcessIdToSessionId((uint)c.Pid, out uint s) && (s == 0 || s == session))
+                            .ToList(),
+                    };
+                }
+                return Data(JsonSerializer.SerializeToUtf8Bytes(snapshot, CallosotomyJson.Default.ConnectionSnapshot));
+
+            case Protocol.Verb.Policies:
+                return Data(await PolicyDataAsync(canEdit, canLoosen, ct).ConfigureAwait(false));
+        }
+
+        if (body is null) return (Protocol.FormatError(ProtocolErrors.BadRequest), null);
+        if (!canEdit)
+        {
+            Log.Denied(_log, "app rules", user, "users may not change app rules");
+            return (Protocol.FormatError(ProtocolErrors.Denied), null);
+        }
+
+        AppIdentity identity;
+        AppPolicy? next = null;
+        try
+        {
+            if (req.Verb == Protocol.Verb.Put)
+            {
+                next = JsonSerializer.Deserialize(body, CallosotomyJson.Default.AppPolicy);
+                if (next is null) return (Protocol.FormatError(ProtocolErrors.BadRequest), null);
+                next = next with { DisplayName = next.DisplayName ?? "", Rules = next.Rules ?? Array.Empty<AppRule>() };
+                identity = next.Identity;
+            }
+            else
+            {
+                identity = JsonSerializer.Deserialize(body, CallosotomyJson.Default.AppIdentity)
+                           ?? throw new JsonException("empty");
+            }
+        }
+        catch (JsonException)
+        {
+            Log.Denied(_log, "app rules", user, "malformed");
+            return (Protocol.FormatError(ProtocolErrors.BadRequest), null);
+        }
+
+        string? invalid = next is not null ? AppRuleLimits.Validate(next) : AppRuleLimits.ValidateIdentity(identity);
+        // No File.Exists check: as SYSTEM it would let users probe for files they can't see.
+        // A rule for a path that doesn't exist is harmless.
+        if (invalid is null && identity.Kind == AppKind.Service && !ServiceExists(identity.Value)) invalid = "service not found";
+        if (invalid is not null)
+        {
+            Log.Denied(_log, "app rules", user, invalid);
+            return (Protocol.FormatError(ProtocolErrors.Invalid), null);
+        }
+        if (ProtectedApps.IsProtected(identity))
+        {
+            Log.Denied(_log, "app rules for " + identity.Value, user, "protected app");
+            return (Protocol.FormatError(ProtocolErrors.Protected), null);
+        }
+
+        var current = await _guardian.PoliciesAsync(ct).ConfigureAwait(false);
+        var previous = current.FirstOrDefault(p => p.Identity.Key == identity.Key);
+        if (previous is null && next is not null && current.Count >= AppRuleLimits.MaxPolicies)
+            return (Protocol.FormatError(ProtocolErrors.Limit), null);
+
+        var effective = next ?? new AppPolicy { Identity = identity };
+        if (!canLoosen && AppRuleEngine.Loosens(previous, effective, _guardian.Resolve))
+        {
+            Log.Denied(_log, "app rules for " + identity.Value, user, "only administrators may loosen app rules");
+            return (Protocol.FormatError(ProtocolErrors.Denied), null);
+        }
+
+        try
+        {
+            await _guardian.ReplacePolicyAsync(identity, next, user, ct).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            return (Protocol.FormatError(ProtocolErrors.Limit), null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.AppApplyFailed(_log, ex);
+            return (Protocol.FormatError(ProtocolErrors.Failed), null);
+        }
+        return Data(await PolicyDataAsync(canEdit, canLoosen, ct).ConfigureAwait(false));
+    }
+
+    private async Task<byte[]> PolicyDataAsync(bool canEdit, bool canLoosen, CancellationToken ct)
+    {
+        var snapshot = new PolicySnapshot
+        {
+            Policies = await _guardian.PoliciesAsync(ct).ConfigureAwait(false),
+            Protected = ProtectedApps.ListedKeys,
+            CanEdit = canEdit,
+            CanLoosen = canLoosen,
+        };
+        return JsonSerializer.SerializeToUtf8Bytes(snapshot, CallosotomyJson.Default.PolicySnapshot);
+    }
+
+    private static (string, byte[]?) Data(byte[] json) =>
+        json.Length > Protocol.MaxResponseBody
+            ? (Protocol.FormatError(ProtocolErrors.Limit), null)
+            : (Protocol.FormatDataHeader(json.Length), json);
+
+    private static bool ServiceExists(string name)
+    {
+        using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name);
+        return key is not null;
+    }
+
+    private static async Task<byte[]?> ReadExactlyAsync(Stream stream, int length, CancellationToken ct)
+    {
+        byte[] buffer = new byte[length];
+        int read = 0;
+        while (read < length)
+        {
+            int n = await stream.ReadAsync(buffer.AsMemory(read), ct).ConfigureAwait(false);
+            if (n == 0) return null;
+            read += n;
+        }
+        return buffer;
     }
 
     private async Task<string> DecideAsync(string? line, string user, bool isAdmin, CancellationToken ct)
@@ -286,6 +436,14 @@ internal sealed partial class ControlServer : BackgroundService
 
     private static string Sanitize(string? line) =>
         line is null ? "(none)" : new string(line.Take(40).Select(c => c is >= ' ' and <= '~' ? c : '?').ToArray());
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetNamedPipeClientSessionId(Microsoft.Win32.SafeHandles.SafePipeHandle pipe, out uint sessionId);
+
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ProcessIdToSessionId(uint pid, out uint sessionId);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

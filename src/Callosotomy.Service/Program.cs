@@ -9,6 +9,7 @@ if (args.Length == 1 && args[0] == "--remove-rules")
 {
     new FirewallBackend().RemoveAll();
     StateStore.Clear();
+    Microsoft.Win32.Registry.LocalMachine.DeleteSubKeyTree(@"SOFTWARE\Callosotomy\Rules", throwOnMissingSubKey: false);
     return 0;
 }
 
@@ -21,6 +22,10 @@ builder.Logging.AddFilter<EventLogLoggerProvider>("Callosotomy", LogLevel.Inform
 builder.Logging.AddFilter<EventLogLoggerProvider>("Microsoft", LogLevel.Warning);
 
 builder.Services.AddSingleton<FirewallBackend>();
+builder.Services.AddSingleton<FirewallWatcher>();
+builder.Services.AddSingleton<DnsMap>();
+builder.Services.AddSingleton<ConnectionTable>();
+builder.Services.AddSingleton<NetworkEvents>();
 builder.Services.AddSingleton<Guardian>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Guardian>());
 builder.Services.AddHostedService<ControlServer>();

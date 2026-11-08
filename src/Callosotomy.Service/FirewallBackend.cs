@@ -25,11 +25,13 @@ internal sealed class FirewallBackend
     /// Makes the firewall contain exactly <paramref name="specs"/> among our rules.
     /// New rules are added before stale ones are removed, so switching modes never opens a gap.
     /// </summary>
-    public void Reconcile(IReadOnlyList<RuleSpec> specs)
+    public void Reconcile(IReadOnlyList<RuleSpec> specs, Func<string?, bool> owns)
     {
+        ArgumentNullException.ThrowIfNull(owns);
         dynamic policy = NewPolicy();
         dynamic rules = policy.Rules;
-        var existing = OurRuleNames(rules);
+        HashSet<string> existing = OurRuleNames(rules);
+        existing.RemoveWhere(n => !owns(n));
 
         foreach (var spec in specs)
         {
@@ -97,6 +99,10 @@ internal sealed class FirewallBackend
             if (spec.RemoteAddresses == "*" && (string)rule.RemoteAddresses != "*")
                 return $"rule '{spec.Name}' was narrowed";
             if ((int)rule.Profiles != AllProfiles) return $"rule '{spec.Name}' profiles were changed";
+            if (!SameText((string?)rule.ApplicationName, spec.Program)
+                || !SameText((string?)rule.ServiceName, spec.Service)
+                || (spec.PackageSid is not null && !SameText(PackageOf(rule), spec.PackageSid)))
+                return $"rule '{spec.Name}' was retargeted";
             if (spec.RemoteAddresses != "*")
             {
                 // Compare coverage, not text: an attacker could narrow the list while leaving
@@ -166,15 +172,30 @@ internal sealed class FirewallBackend
         }
     }
 
+    private static bool SameText(string? a, string? b) =>
+        string.Equals(string.IsNullOrEmpty(a) ? null : a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static string? PackageOf(dynamic rule)
+    {
+        try { return (string?)rule.LocalAppPackageId; }
+        catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException) { return null; }
+        catch (COMException) { return null; }
+    }
+
     private static void Configure(dynamic rule, RuleSpec spec)
     {
-        rule.Description = "Created by Callosotomy network isolation. Do not edit; the service restores it.";
+        rule.Description = AppRuleEngine.IsAppRule(spec.Name)
+            ? "Created by Callosotomy from your app rules. Change it in the Callosotomy network monitor."
+            : "Created by Callosotomy network isolation. Do not edit; the service restores it.";
         rule.Grouping = FirewallPlan.RuleGroup;
         rule.Direction = (int)spec.Direction;
         rule.Action = ActionBlock;
         rule.Protocol = (int)spec.Protocol; // must be set before ports
         rule.RemoteAddresses = spec.RemoteAddresses;
         if (spec.RemotePorts is not null) rule.RemotePorts = spec.RemotePorts;
+        if (spec.Program is not null) rule.ApplicationName = spec.Program;
+        if (spec.Service is not null) rule.ServiceName = spec.Service;
+        if (spec.PackageSid is not null) rule.LocalAppPackageId = spec.PackageSid;
         rule.Profiles = AllProfiles;
         rule.InterfaceTypes = "All";
         rule.Enabled = true;

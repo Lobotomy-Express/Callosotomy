@@ -16,6 +16,7 @@ internal sealed record ServicePolicy
 
     public bool AllowUsersToIsolate { get; init; } = true;
     public bool AllowUserRestore { get; init; } = true;
+    public bool AllowUserAppRules { get; init; } = true;
     public bool AllowInternetMode { get; init; } = true;
     public bool AllowLocalMode { get; init; } = true;
     public bool AllowAllMode { get; init; } = true;
@@ -63,6 +64,7 @@ internal sealed record ServicePolicy
         {
             AllowUsersToIsolate = Flag("AllowUsersToIsolate", d.AllowUsersToIsolate),
             AllowUserRestore = Flag("AllowUserRestore", d.AllowUserRestore),
+            AllowUserAppRules = Flag("AllowUserAppRules", d.AllowUserAppRules),
             AllowInternetMode = Flag("AllowInternetMode", d.AllowInternetMode),
             AllowLocalMode = Flag("AllowLocalMode", d.AllowLocalMode),
             AllowAllMode = Flag("AllowAllMode", d.AllowAllMode),

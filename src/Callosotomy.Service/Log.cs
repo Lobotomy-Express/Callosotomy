@@ -20,6 +20,24 @@ internal static partial class Log
     [LoggerMessage(EventId = 1102, Level = LogLevel.Information, Message = "Network configuration changed; local-mode rules recalculated.")]
     public static partial void NetworkChanged(ILogger logger);
 
+    [LoggerMessage(EventId = 1110, Level = LogLevel.Warning, Message = "App rules for {App} changed by {User}: {Summary}.")]
+    public static partial void AppRulesChanged(ILogger logger, string app, string summary, string user);
+
+    [LoggerMessage(EventId = 1111, Level = LogLevel.Information, Message = "Dropped {Count} established connection(s) for {App} after its rules changed.")]
+    public static partial void AppConnectionsDropped(ILogger logger, int count, string app);
+
+    [LoggerMessage(EventId = 1502, Level = LogLevel.Error, Message = "Failed to apply app rules; retrying.")]
+    public static partial void AppApplyFailed(ILogger logger, Exception ex);
+
+    [LoggerMessage(EventId = 1120, Level = LogLevel.Information, Message = "Network monitor event stream started.")]
+    public static partial void EventsStarted(ILogger logger);
+
+    [LoggerMessage(EventId = 1121, Level = LogLevel.Information, Message = "Network monitor event stream stopped (monitor closed).")]
+    public static partial void EventsStopped(ILogger logger);
+
+    [LoggerMessage(EventId = 1122, Level = LogLevel.Warning, Message = "Network event stream unavailable; the monitor will show the connection table only.")]
+    public static partial void EventsUnavailable(ILogger logger, Exception ex);
+
     [LoggerMessage(EventId = 1200, Level = LogLevel.Error, Message = "TAMPERING DETECTED while in {Mode}: {Detail}.")]
     public static partial void TamperDetected(ILogger logger, IsolationMode mode, string detail);
 

@@ -9,6 +9,8 @@
       <string id="AllowUsersToIsolate_Help">Enabled or not configured: any signed-in user can cut the internet, local network or everything (a tightening action). Disabled: only administrators can.</string>
       <string id="AllowUserRestore">Allow standard users to restore connections</string>
       <string id="AllowUserRestore_Help">Enabled or not configured: users can lift a block they or someone else applied. Disabled: once a machine is severed only an administrator can restore it. Recommended Disabled for managed fleets, so malware running as the user cannot undo isolation.</string>
+      <string id="AllowUserAppRules">Allow standard users to create app rules</string>
+      <string id="AllowUserAppRules_Help">Enabled or not configured: users can switch apps off and add per-app rules in the network monitor. Loosening a rule (allowing something that was blocked) additionally requires "Allow standard users to restore connections". Disabled: only administrators can change app rules.</string>
       <string id="AllowInternetMode">Allow "Internet" mode</string>
       <string id="AllowLocalMode">Allow "Local network" mode</string>
       <string id="AllowAllMode">Allow "Everything" mode</string>

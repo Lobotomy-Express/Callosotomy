@@ -69,5 +69,7 @@ internal sealed partial class PaneWindow : Window
     private async void OnRestore(object sender, RoutedEventArgs e) =>
         await _controller.SetModeAsync(IsolationMode.None).ConfigureAwait(true);
 
+    private void OnMonitor(object sender, RoutedEventArgs e) => _controller.ShowMonitor();
+
     private void OnToggleOrb(object sender, RoutedEventArgs e) => _controller.SetOrbVisible(!_controller.Status.ShowOrb);
 }
