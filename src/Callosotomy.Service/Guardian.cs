@@ -139,7 +139,8 @@ internal sealed class Guardian : BackgroundService
     {
         _events.Touch();
         _dns.Refresh(TimeSpan.FromSeconds(3));
-        return _connections.Snapshot(_events.Snapshot(), _events.Active);
+        var flows = _events.Active ? _events.Snapshot() : null;
+        return _connections.Snapshot(flows, _events.Active);
     }
 
     public async Task<IReadOnlyList<AppPolicy>> PoliciesAsync(CancellationToken ct)

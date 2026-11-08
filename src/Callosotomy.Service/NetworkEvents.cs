@@ -17,6 +17,7 @@ namespace Callosotomy.Service;
 /// Cost: Windows pushes events to us; we only add numbers to a dictionary. The session runs only
 /// while the monitor is open and stops itself after <see cref="IdleStop"/> without a request.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031", Justification = "The event stream is optional; any failure must fall back to the connection table, never break the monitor.")]
 internal sealed class NetworkEvents : IDisposable
 {
     private const string SessionName = "Callosotomy-Network";
@@ -95,7 +96,7 @@ internal sealed class NetworkEvents : IDisposable
                 _idleTimer.Change(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
                 Log.EventsStarted(_log);
             }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException or System.Runtime.InteropServices.COMException or NotSupportedException)
+            catch (Exception ex)
             {
                 // Fall back to the connection table alone; don't retry on every request.
                 _unavailable = true;
@@ -151,9 +152,15 @@ internal sealed class NetworkEvents : IDisposable
         {
             foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
                 foreach (var a in nic.GetIPProperties().UnicastAddresses)
-                    set.Add(a.Address.ScopeId != 0 ? new IPAddress(a.Address.GetAddressBytes()) : a.Address);
+                {
+                    // ScopeId only exists on IPv6 addresses; reading it on IPv4 throws.
+                    var addr = a.Address;
+                    set.Add(addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && addr.ScopeId != 0
+                        ? new IPAddress(addr.GetAddressBytes())
+                        : addr);
+                }
         }
-        catch (NetworkInformationException)
+        catch (Exception ex) when (ex is NetworkInformationException or System.Net.Sockets.SocketException)
         {
             return;
         }

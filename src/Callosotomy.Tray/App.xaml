@@ -21,7 +21,7 @@
           <ControlTemplate TargetType="ContentControl">
             <Border x:Name="Track" CornerRadius="14" Background="#38FFFFFF">
               <Ellipse x:Name="Knob" Width="24" Height="24" Fill="White" HorizontalAlignment="Left" Margin="2,0,0,0">
-                <Ellipse.RenderTransform><TranslateTransform x:Name="KnobX"/></Ellipse.RenderTransform>
+                <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
                 <Ellipse.Effect><DropShadowEffect BlurRadius="6" ShadowDepth="1.5" Opacity="0.3"/></Ellipse.Effect>
               </Ellipse>
             </Border>
@@ -31,7 +31,7 @@
                 <DataTrigger.EnterActions>
                   <BeginStoryboard>
                     <Storyboard>
-                      <DoubleAnimation Storyboard.TargetName="KnobX" Storyboard.TargetProperty="X" To="18" Duration="0:0:0.28">
+                      <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="18" Duration="0:0:0.28">
                         <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.35"/></DoubleAnimation.EasingFunction>
                       </DoubleAnimation>
                     </Storyboard>
@@ -40,7 +40,7 @@
                 <DataTrigger.ExitActions>
                   <BeginStoryboard>
                     <Storyboard>
-                      <DoubleAnimation Storyboard.TargetName="KnobX" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.28">
+                      <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.28">
                         <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.35"/></DoubleAnimation.EasingFunction>
                       </DoubleAnimation>
                     </Storyboard>
