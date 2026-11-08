@@ -122,7 +122,7 @@ internal sealed class MonitorViewModel : INotifyPropertyChanged
     public ObservableCollection<AppRow> Apps { get; } = new();
     public AppRow? Selected => Apps.FirstOrDefault(a => a.Key == _selectedKey) ?? Apps.FirstOrDefault();
     public IReadOnlyList<RuleRow> Rules => _rules;
-    private IReadOnlyList<RuleRow> _rules = new List<RuleRow>();
+    private List<RuleRow> _rules = new();
     private int _policyVersion;
     public IReadOnlyList<ConnectionRow> SelectedConnections => Selected is { } a ? a.Connections.Select(c => Row(a, c)).ToList() : new List<ConnectionRow>();
     public bool HasSelection => Selected is not null;
