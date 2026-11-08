@@ -9,7 +9,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
-    <Version>0.3.3</Version>
+    <Version>0.3.4</Version>
     <Company>lobotomy-express</Company>
     <Product>Callosotomy</Product>
     <Copyright>Copyright (c) 2026 lobotomy-express</Copyright>

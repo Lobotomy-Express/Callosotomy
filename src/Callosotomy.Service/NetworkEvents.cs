@@ -58,49 +58,100 @@ internal sealed class NetworkEvents : IDisposable
     /// <summary>True while events are flowing. False if the session couldn't start (the table still works).</summary>
     public bool Active { get { lock (_lock) return _session is not null; } }
 
+    /// <summary>
+    /// Ways to read the kernel's network events, tried in order. Some Windows builds refuse a
+    /// service a private kernel session ("Access is denied" when reading it); the classic
+    /// "NT Kernel Logger" is then used, but only if no other tool already owns it.
+    /// </summary>
+    private static readonly string[] Strategies = { SessionName, KernelTraceEventParser.KernelSessionName };
+    private int _strategy;
+    private bool _stopping;
+
     /// <summary>Called on every monitor request: starts the session if needed and keeps it alive.</summary>
     public void Touch()
     {
         lock (_lock)
         {
             _lastTouch = DateTime.UtcNow;
-            if (_session is not null || _unavailable) return;
-            try
+            while (_session is null && !_unavailable)
             {
-                RefreshLocalAddresses();
-                // Reusing the name stops any session a crashed earlier run left behind.
-                var session = new TraceEventSession(SessionName) { StopOnDispose = true };
-                session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
-                var k = session.Source.Kernel;
-                k.TcpIpSend += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
-                k.TcpIpRecv += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
-                k.TcpIpAccept += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, true);
-                k.TcpIpConnect += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, false);
-                k.TcpIpSendIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
-                k.TcpIpRecvIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
-                k.TcpIpAcceptIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, true);
-                k.TcpIpConnectIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, false);
-                k.UdpIpSend += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
-                k.UdpIpRecv += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
-                k.UdpIpSendIPV6 += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
-                k.UdpIpRecvIPV6 += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
-
-                _session = session;
-                _thread = new Thread(() =>
+                if (_strategy >= Strategies.Length) { _unavailable = true; break; }
+                string name = Strategies[_strategy];
+                try
                 {
-                    try { session.Source.Process(); }
-                    catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException) { }
-                })
-                { IsBackground = true, Name = "Callosotomy network events", Priority = ThreadPriority.BelowNormal };
-                _thread.Start();
-                _idleTimer.Change(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
-                Log.EventsStarted(_log);
+                    StartLocked(name);
+                    Log.EventsStarted(_log);
+                }
+                catch (Exception ex)
+                {
+                    Log.EventsUnavailable(_log, ex);
+                    _strategy++;
+                }
             }
-            catch (Exception ex)
+        }
+    }
+
+    private void StartLocked(string name)
+    {
+        // The classic kernel logger is shared by every tool on the PC: never take it from someone else.
+        if (name == KernelTraceEventParser.KernelSessionName && TraceEventSession.GetActiveSessionNames().Contains(name))
+            throw new InvalidOperationException("The NT Kernel Logger is in use by another program.");
+
+        RefreshLocalAddresses();
+        // For our own name, this also replaces any session a crashed earlier run left behind.
+        var session = new TraceEventSession(name) { StopOnDispose = true };
+        try
+        {
+            session.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+            var k = session.Source.Kernel;
+            k.TcpIpSend += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
+            k.TcpIpRecv += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
+            k.TcpIpAccept += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, true);
+            k.TcpIpConnect += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, false);
+            k.TcpIpSendIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
+            k.TcpIpRecvIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
+            k.TcpIpAcceptIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, true);
+            k.TcpIpConnectIPV6 += e => Add(e.ProcessID, true, e.saddr, e.sport, e.daddr, e.dport, 0, 0, false);
+            k.UdpIpSend += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
+            k.UdpIpRecv += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
+            k.UdpIpSendIPV6 += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, e.size, 0, false);
+            k.UdpIpRecvIPV6 += e => Add(e.ProcessID, false, e.saddr, e.sport, e.daddr, e.dport, 0, e.size, false);
+        }
+        catch
+        {
+            session.Dispose();
+            throw;
+        }
+
+        _session = session;
+        _stopping = false;
+        _thread = new Thread(() => Pump(session))
+        { IsBackground = true, Name = "Callosotomy network events", Priority = ThreadPriority.BelowNormal };
+        _thread.Start();
+        _idleTimer.Change(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>
+    /// Reads events until the session stops. Any failure (for example Windows refusing access to
+    /// the session) is logged and moves on to the next strategy; it never takes the service down.
+    /// </summary>
+    private void Pump(TraceEventSession session)
+    {
+        try
+        {
+            session.Source.Process();
+        }
+        catch (Exception ex)
+        {
+            lock (_lock)
             {
-                // Fall back to the connection table alone; don't retry on every request.
-                _unavailable = true;
+                if (_stopping || !ReferenceEquals(_session, session)) return;
                 Log.EventsUnavailable(_log, ex);
+                try { session.Dispose(); } catch (Exception) { }
+                _session = null;
+                _flows.Clear();
+                _strategy++;
+                _idleTimer.Change(Timeout.Infinite, Timeout.Infinite);
             }
         }
     }
@@ -179,8 +230,10 @@ internal sealed class NetworkEvents : IDisposable
 
     private void StopLocked()
     {
+        _stopping = true;
         _idleTimer.Change(Timeout.Infinite, Timeout.Infinite);
-        _session?.Dispose(); // stops the session; Process() returns and the thread ends
+        try { _session?.Dispose(); } // stops the session; Process() returns and the thread ends
+        catch (Exception) { }
         _session = null;
         _flows.Clear();
     }

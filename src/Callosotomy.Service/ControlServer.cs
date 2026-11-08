@@ -26,7 +26,7 @@ internal sealed partial class ControlServer : BackgroundService
 {
     private const int MaxInstances = 16;
     private const int MaxPerProcess = 2;
-    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(10);
     private static readonly SecurityIdentifier NetworkSid = new(WellKnownSidType.NetworkSid, null);
 
     private readonly Guardian _guardian;

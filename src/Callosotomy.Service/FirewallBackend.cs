@@ -201,7 +201,40 @@ internal sealed class FirewallBackend
         rule.Enabled = true;
     }
 
+    private const string RulesKey = @"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules";
+
+    /// <summary>
+    /// Names of our rules. Windows stores persistent firewall rules as "...|Name=xxx|..." strings
+    /// in the registry, which is far faster to read than enumerating every rule over COM.
+    /// Falls back to COM if the registry can't be read.
+    /// </summary>
     private static HashSet<string> OurRuleNames(dynamic rules)
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(RulesKey);
+            if (key is not null)
+            {
+                var found = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string valueName in key.GetValueNames())
+                {
+                    if (key.GetValue(valueName) is not string data) continue;
+                    int i = data.IndexOf("|Name=" + FirewallPlan.RulePrefix + ":", StringComparison.Ordinal);
+                    if (i < 0) continue;
+                    int start = i + 6, end = data.IndexOf('|', start);
+                    string name = end < 0 ? data[start..] : data[start..end];
+                    if (FirewallPlan.IsOurs(name)) found.Add(name);
+                }
+                return found;
+            }
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+        {
+        }
+        return OurRuleNamesViaCom(rules);
+    }
+
+    private static HashSet<string> OurRuleNamesViaCom(dynamic rules)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (dynamic rule in rules)
