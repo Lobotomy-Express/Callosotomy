@@ -111,20 +111,32 @@ internal sealed class AppController : IDisposable
 
     public void SetOrbVisible(bool visible)
     {
-        if (Status.OrbLocked) return;
-        Status.ShowOrb = visible;
-        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Callosotomy"))
+        if (Status.OrbLocked)
         {
+            Status.Flash("The floating button is set by your organisation");
+            return;
+        }
+        try
+        {
+            if (visible) ShowOrb(); else _orb?.Hide();
+            Status.ShowOrb = visible;
+            using var key = Registry.CurrentUser.CreateSubKey(@"Software\Callosotomy");
             key.SetValue("ShowFloatingButton", visible ? 1 : 0, RegistryValueKind.DWord);
         }
-        if (visible) ShowOrb(); else _orb?.Hide();
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception
+                                   or UnauthorizedAccessException or System.Windows.Markup.XamlParseException)
+        {
+            ErrorLog.Write(ex);
+            Status.ShowOrb = false;
+            Status.Flash("Couldn't show the floating button (details in the error log)");
+        }
         _tray.Update(Status);
     }
 
     private void ShowOrb()
     {
         _orb ??= new OrbWindow(this);
-        _orb.Show();
+        _orb.Show(); // ShowActivated=False: the pane keeps focus and stays open
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

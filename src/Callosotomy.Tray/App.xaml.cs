@@ -23,6 +23,14 @@ internal sealed partial class App : Application
             return;
         }
 
+        // Never fail silently: log anything unexpected and keep the tray app running.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            ErrorLog.Write(args.Exception);
+            args.Handled = true;
+            _controller?.Status.Flash("Something went wrong (details in the error log)");
+        };
+
         _single = new Mutex(initiallyOwned: true, @"Local\Callosotomy.Tray", out bool created);
         if (!created)
         {

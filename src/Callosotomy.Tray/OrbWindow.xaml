@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:Callosotomy.Tray"
         Title="Callosotomy" Width="220" Height="220"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize" ShowActivated="False"
         FontFamily="{StaticResource UiFont}">
   <Grid>
     <!-- Breathing halo in the state colour -->
